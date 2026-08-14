@@ -11,6 +11,7 @@ class FunPayConfig:
     golden_key: str
     user_agent: str = ""
     requests_delay: float = 6.0
+    proxy: str = ""  # например http://user:pass@host:port, пусто — без прокси
 
 
 @dataclass
@@ -62,8 +63,11 @@ def run_setup_wizard(path: str = CONFIG_PATH) -> Config:
             break
         print("Нужно ввести число. Попробуйте снова.")
 
+    print("\nПрокси для FunPay (необязательно, вида http://user:pass@host:port). Enter — пропустить.")
+    proxy = input("Прокси: ").strip()
+
     config = Config(
-        funpay=FunPayConfig(golden_key=golden_key),
+        funpay=FunPayConfig(golden_key=golden_key, proxy=proxy),
         telegram=TelegramConfig(token=token, admins=[int(admin_raw)]),
     )
     save_config(config, path)

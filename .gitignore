@@ -2,5 +2,5 @@
 __pycache__/
 *.pyc
 config.json
-storage/
-logs/
+/storage/
+/logs/

@@ -17,6 +17,7 @@ FPHelper подключается к вашему аккаунту FunPay и в 
 
 ## 🗺️ Навигация
 - **[Что делает бот](#-что-делает-бот)**
+- **[Готовые плагины](#-готовые-плагины)**
 - **[Установка](#️-установка)**
 - **[Несколько админов](#-несколько-админов)**
 - **[Для разработчиков плагинов](#-для-разработчиков-плагинов)**
@@ -47,6 +48,102 @@ FPHelper подключается к вашему аккаунту FunPay и в 
 - **⌨️ Свои команды и кнопки в общем Telegram-боте**
 - **📥 Подписка на любые события FunPay** без изменений в ядре
 
+## 🧩 Готовые плагины
+
+В `plugins/` уже лежит 12 рабочих плагинов — можно использовать как есть, включать
+только нужные (удалив папку — остальные), или взять за основу своих.
+
+<details>
+  <summary><strong>👤 Profile</strong> — профиль аккаунта</summary>
+
+  `/profile` — баланс, валюта, активные продажи/покупки.
+</details>
+
+<details>
+  <summary><strong>💬 Chats</strong> — просмотр чатов и переписки</summary>
+
+  `/chats` — последние чаты · `/history <chat_id>` — история сообщений ·
+  `/reply <chat_id> <текст>` — ответить покупателю.
+</details>
+
+<details>
+  <summary><strong>📋 Orders</strong> — заказы</summary>
+
+  `/orders` — список заказов · `/order <id>` — детали (включая отзыв, если есть) ·
+  `/refund <id>` — оформить возврат.
+</details>
+
+<details>
+  <summary><strong>🛍️ Lots</strong> — управление лотом</summary>
+
+  `/lot <id>` — просмотр · `/lot_toggle <id>` — вкл/выкл ·
+  `/lot_price <id> <цена>` — изменить цену.
+</details>
+
+<details>
+  <summary><strong>⬆️ Auto Raise Lots</strong> — авто-поднятие лотов</summary>
+
+  Сам поднимает выбранные категории с учётом кулдауна FunPay (правильно ждёт
+  `wait_time` из ответа сайта, а не долбит запросами).
+  `/autoraise` — статус · `/autoraise_categories` — ваши категории с ID ·
+  `/autoraise_add <id>` / `/autoraise_remove <id>` · `/autoraise_on` / `/autoraise_off`.
+</details>
+
+<details>
+  <summary><strong>🚀 Auto Delivery</strong> — авто-выдача товара</summary>
+
+  По ключевому слову в названии лота — либо шлёт фиксированный текст, либо
+  выдаёт одну позицию со «склада» (коды/ключи, каждая ровно одному покупателю).
+  `/delivery_add_text <слово> <текст>` · `/delivery_stock_add <слово> <позиция>` ·
+  `/delivery_list` · `/delivery_remove <слово>`.
+</details>
+
+<details>
+  <summary><strong>⚡ Fast Replies</strong> — быстрые ответы</summary>
+
+  Заготовленные шаблоны текста, отправляемые в любой чат одной командой.
+  `/freply_add <имя> <текст>` · `/freply_list` · `/freply <имя> <chat_id>` ·
+  `/freply_remove <имя>`.
+</details>
+
+<details>
+  <summary><strong>❗ Custom Commands</strong> — команды для покупателей</summary>
+
+  Покупатель пишет в чате `!команда` — бот отвечает заданным текстом
+  (поддерживает `{username}`). `/cmd_add <имя> <текст>` · `/cmd_list` · `/cmd_remove <имя>`.
+</details>
+
+<details>
+  <summary><strong>💸 Auto Withdrawal</strong> — авто-вывод средств</summary>
+
+  Периодический вывод баланса на карту/кошелёк по расписанию. Выключен по
+  умолчанию — двигает реальные деньги, включайте осознанно.
+  `/withdrawal_status` · `/withdrawal_setup <валюта> <кошелёк> <адрес> <сумма|all> <часы>` ·
+  `/withdrawal_on` / `/withdrawal_off`.
+</details>
+
+<details>
+  <summary><strong>🌟 Reviews</strong> — отзывы</summary>
+
+  Уведомляет о новых отзывах на последние закрытые заказы (см. ограничение в
+  докстринге плагина — FunPayAPI не даёт события «новый отзыв», поэтому это
+  периодический опрос, а не мгновенно). `/review_reply <id> <текст>` ·
+  `/review_delete <id>`.
+</details>
+
+<details>
+  <summary><strong>🗒️ Logs</strong> — логи</summary>
+
+  `/logs [N]` — последние N строк лога (по умолчанию 30) прямо в Telegram.
+</details>
+
+<details>
+  <summary><strong>🔧 Example Autoreply</strong> — учебный пример</summary>
+
+  Простейший плагин-заготовка для тех, кто пишет свой первый плагин — смотрите
+  его код, там же и `/ping`.
+</details>
+
 ## ⬇️ Установка
 
 ### 🔷 Windows
@@ -54,7 +151,7 @@ FPHelper подключается к вашему аккаунту FunPay и в 
 2. Скачайте проект (`git clone` или архивом) и откройте папку.
 3. Запустите `install.bat` — создастся виртуальное окружение и установятся зависимости.
 4. Запустите `run.bat`.
-5. При первом запуске введите в консоли: golden key от FunPay, токен Telegram-бота (от [@BotFather](https://t.me/BotFather)) и свой Telegram ID.
+5. При первом запуске введите в консоли: golden key от FunPay, токен Telegram-бота (от [@BotFather](https://t.me/BotFather)), свой Telegram ID и, при необходимости, прокси (можно пропустить Enter'ом).
 
 ```bash
 install.bat

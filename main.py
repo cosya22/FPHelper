@@ -40,7 +40,12 @@ def main() -> None:
     admin = TelegramAdmin(config, CONFIG_PATH)
 
     logger.info("Подключаюсь к FunPay...")
-    fp_client = FunPayClient(config.funpay.golden_key, bus, user_agent=config.funpay.user_agent or None)
+    fp_client = FunPayClient(
+        config.funpay.golden_key,
+        bus,
+        user_agent=config.funpay.user_agent or None,
+        proxy=config.funpay.proxy or None,
+    )
     logger.info(f"Подключено: {fp_client.account.username} (ID {fp_client.account.id})")
 
     plugins = load_plugins(fp_client.account, bus, admin)
