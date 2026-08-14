@@ -1,0 +1,14 @@
+# Зависимости опциональных плагинов (Telegram Stars/Premium, Auto Steam Rental).
+# Ставятся ОТДЕЛЬНЫМ шагом, ДО requirements.txt — см. install.bat/install.sh.
+#
+# Почему отдельно и именно в этом порядке: pysteamauth в метаданных жёстко требует
+# urllib3==2.2.2, а FunPayAPI (через requests_toolbelt==0.10.1) требует urllib3<2 —
+# иначе падает на импорте (urllib3.contrib.appengine убрали в urllib3 2.x). Пакет,
+# установленный последним, "перетягивает" urllib3 на свою версию, поэтому этот файл
+# должен ставиться первым, а requirements.txt — вторым и последним. Реально
+# pysteamauth использует из urllib3 только parse_url(), которая одинаково работает
+# и на 1.26.x, так что после установки requirements.txt поверх pip лишь предупредит
+# про формальное несоответствие версии у pysteamauth — это безопасно, проверено.
+pyfragment
+pysteamauth
+rsa
