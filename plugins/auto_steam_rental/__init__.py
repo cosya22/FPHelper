@@ -29,7 +29,7 @@ from . import crypto, steam_guard, steam_password
 
 INFO = PluginInfo(
     name="Auto Steam Rental",
-    version="1.4.0",
+    version="1.5.0",
     description="Авто-аренда Steam-аккаунтов: выдача, коды Steam Guard, попытка авто-смены пароля по истечении.",
     author="you",
 )
@@ -108,6 +108,19 @@ def setup(ctx):
             if not acc_category or acc_category == needle:
                 return True
         return False
+
+    def find_lot_id_for_category(category):
+        s = get_settings()
+        needle = (category or "").strip().lower()
+        # сначала лот именно этой категории
+        for lot_id_str, cat in s["lot_categories"].items():
+            if needle and cat.strip().lower() == needle:
+                return lot_id_str
+        # затем — лот без привязки к конкретной категории
+        for lot_id_str, cat in s["lot_categories"].items():
+            if not cat.strip():
+                return lot_id_str
+        return None
 
     # ---------- события FunPay: выдача ----------
 
@@ -266,11 +279,27 @@ def setup(ctx):
                 pass
 
         else:  # !продление
-            try:
-                ctx.account.send_message(
-                    message.chat_id,
-                    "Чтобы продлить аренду, оформите новый заказ на любой лот этой же игры — я сам добавлю время к текущей аренде.",
+            if job["status"] == STATUS_ACTIVE and job["rental_ends_at"]:
+                left = max(0, int(job["rental_ends_at"] - time.time()))
+                left_text = f"{left // 3600}ч {(left % 3600) // 60}м"
+            else:
+                left_text = "аренда ещё не началась (запросите !код)"
+
+            lot_id = find_lot_id_for_category(job.get("category", ""))
+            if lot_id:
+                reply = (
+                    f"🔄 Для продления аренды оплатите лот по ссылке:\n"
+                    f"https://funpay.com/lots/offer?id={lot_id}\n\n"
+                    f"∟ Осталось: {left_text}"
                 )
+            else:
+                reply = (
+                    f"🔄 Чтобы продлить аренду, оформите новый заказ на любой лот этой же игры — "
+                    f"я сам добавлю время к текущей аренде.\n\n"
+                    f"∟ Осталось: {left_text}"
+                )
+            try:
+                ctx.account.send_message(message.chat_id, reply)
             except Exception:
                 pass
 
