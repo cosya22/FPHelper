@@ -33,7 +33,7 @@ from . import crypto, fragment_client, pricing
 
 INFO = PluginInfo(
     name="Telegram Stars",
-    version="2.0.0",
+    version="2.1.0",
     description="Авто-выдача Telegram Stars через Fragment: доставка, динамические цены, авто-лоты, напоминания.",
     author="you",
 )
@@ -123,8 +123,8 @@ def setup(ctx):
         try:
             ctx.account.send_message(
                 chat_id,
-                f"Спасибо за заказ! Пришлите сюда ваш Telegram username (например, @username) — "
-                f"на него начислим {amount} Stars.",
+                f"🌟 Спасибо за заказ! Пришлите сюда ваш Telegram username (например, @username) — "
+                f"на него начислим ⭐ {amount} Stars.",
             )
         except Exception:
             ctx.logger.exception(f"Не удалось запросить username у {order.buyer_username}")
@@ -150,7 +150,7 @@ def setup(ctx):
         job["status"] = STATUS_QUEUED
         save_jobs(jobs)
         try:
-            ctx.account.send_message(message.chat_id, "Принято! Stars придут в течение нескольких минут.")
+            ctx.account.send_message(message.chat_id, "✅ Принято! ⭐ Stars придут в течение нескольких минут.")
         except Exception:
             pass
 
@@ -177,7 +177,7 @@ def setup(ctx):
                 job["delivered_at"] = time.time()
                 save_jobs(jobs)
                 try:
-                    ctx.account.send_message(job["chat_id"], f"✅ Начислено {job['amount']} Stars. Спасибо за покупку!")
+                    ctx.account.send_message(job["chat_id"], f"✅ Начислено ⭐ {job['amount']} Stars. Спасибо за покупку!")
                 except Exception:
                     pass
                 ctx.notify_owner(

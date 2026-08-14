@@ -36,7 +36,7 @@ from . import crypto, fragment_client, pricing
 
 INFO = PluginInfo(
     name="Telegram Premium",
-    version="1.0.0",
+    version="1.1.0",
     description="Авто-выдача Telegram Premium (3/6/12 мес) через Fragment: доставка, динамические цены, авто-лоты, напоминания.",
     author="you",
 )
@@ -134,7 +134,7 @@ def setup(ctx):
         try:
             ctx.account.send_message(
                 chat_id,
-                f"Спасибо за заказ! Пришлите сюда ваш Telegram username (например, @username) — "
+                f"💎 Спасибо за заказ! Пришлите сюда ваш Telegram username (например, @username) — "
                 f"подарим Premium на {months} мес.",
             )
         except Exception:
@@ -161,7 +161,7 @@ def setup(ctx):
         job["status"] = STATUS_QUEUED
         save_jobs(jobs)
         try:
-            ctx.account.send_message(message.chat_id, "Принято! Premium придёт в течение нескольких минут.")
+            ctx.account.send_message(message.chat_id, "✅ Принято! 💎 Premium придёт в течение нескольких минут.")
         except Exception:
             pass
 
@@ -189,7 +189,7 @@ def setup(ctx):
                 save_jobs(jobs)
                 try:
                     ctx.account.send_message(
-                        job["chat_id"], f"✅ Подарили Premium на {job['months']} мес. Спасибо за покупку!"
+                        job["chat_id"], f"✅ Подарили 💎 Premium на {job['months']} мес. Спасибо за покупку!"
                     )
                 except Exception:
                     pass
