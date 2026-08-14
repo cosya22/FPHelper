@@ -167,12 +167,14 @@ def setup(ctx):
         try:
             ctx.account.send_message(
                 chat_id,
-                f"Спасибо за заказ! Данные для входа:\n\n"
-                f"Логин: {login}\n"
-                f"Пароль: {password}\n\n"
-                f"Когда Steam попросит код Steam Guard — напишите сюда !code, и я пришлю актуальный. "
-                f"Отсчёт аренды ({int(duration_seconds // 3600)} ч.) начнётся с первого запроса кода.\n"
-                f"Команды: !code — получить код, !time — сколько осталось.",
+                f"🎮 Спасибо за заказ! Данные для входа:\n\n"
+                f"👤 Логин: {login}\n"
+                f"🔑 Пароль: {password}\n\n"
+                f"🛡️ Когда Steam попросит код Steam Guard — напишите сюда !code, и я пришлю актуальный.\n"
+                f"⏱️ Отсчёт аренды ({int(duration_seconds // 3600)} ч.) начнётся с первого запроса кода.\n\n"
+                f"📋 Команды:\n"
+                f"!code - получить код Steam Guard\n"
+                f"!time - сколько времени осталось",
             )
         except Exception:
             ctx.logger.exception(f"Не удалось отправить данные аккаунта по заказу {order.id}")
