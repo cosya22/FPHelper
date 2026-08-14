@@ -7,7 +7,7 @@
 осознанный риск владельца, плагин ничего от него не скрывает.
 
 Флоу: покупатель оплачивает лот в категории (игре) X -> бот сразу
-присылает логин/пароль аккаунта, привязанного к этой категории -> покупатель пишет !code,
+присылает логин/пароль аккаунта, привязанного к этой категории -> покупатель пишет !код,
 когда Steam просит код Steam Guard, и получает актуальный код -> с этого
 момента идёт отсчёт аренды -> по истечении бот пытается сам сменить
 пароль через официальный визард восстановления (steam_password.py); если
@@ -29,7 +29,7 @@ from . import crypto, steam_guard, steam_password
 
 INFO = PluginInfo(
     name="Auto Steam Rental",
-    version="1.3.0",
+    version="1.4.0",
     description="Авто-аренда Steam-аккаунтов: выдача, коды Steam Guard, попытка авто-смены пароля по истечении.",
     author="you",
 )
@@ -148,7 +148,7 @@ def setup(ctx):
                 end_text = f"Осталось теперь: {left} ч."
             else:
                 job["duration_seconds"] += duration_seconds
-                end_text = "Прибавится к длительности, когда аренда начнётся (после первого !code)."
+                end_text = "Прибавится к длительности, когда аренда начнётся (после первого !код)."
             save_jobs(jobs)
             try:
                 ctx.account.send_message(
@@ -199,11 +199,12 @@ def setup(ctx):
                 f"🎮 Спасибо за заказ! Данные для входа:\n\n"
                 f"👤 Логин: {login}\n"
                 f"🔑 Пароль: {password}\n\n"
-                f"🛡️ Когда Steam попросит код Steam Guard — напишите сюда !code, и я пришлю актуальный.\n"
+                f"🛡️ Когда Steam попросит код Steam Guard — напишите сюда !код, и я пришлю актуальный.\n"
                 f"⏱️ Отсчёт аренды ({int(duration_seconds // 3600)} ч.) начнётся с первого запроса кода.\n\n"
                 f"📋 Команды:\n"
-                f"!code - получить код Steam Guard\n"
-                f"!time - сколько времени осталось",
+                f"!код - получить код Steam Guard\n"
+                f"!время - сколько времени осталось\n"
+                f"!продление - как продлить аренду",
             )
         except Exception:
             ctx.logger.exception(f"Не удалось отправить данные аккаунта по заказу {order.id}")
@@ -214,7 +215,7 @@ def setup(ctx):
         if message.author_id == ctx.account.id or not message.text:
             return
         text = message.text.strip().lower()
-        if text not in ("!code", "!time", "!продлить", "!extend"):
+        if text not in ("!код", "!время", "!продление"):
             return
 
         jobs = get_jobs()
@@ -230,7 +231,7 @@ def setup(ctx):
         if account is None:
             return
 
-        if text == "!code":
+        if text == "!код":
             try:
                 mafile = load_mafile(account)
                 code = steam_guard.generate_code(mafile["shared_secret"])
@@ -253,9 +254,9 @@ def setup(ctx):
             except Exception:
                 pass
 
-        elif text == "!time":
+        elif text == "!время":
             if job["status"] != STATUS_ACTIVE or not job["rental_ends_at"]:
-                reply = "Аренда ещё не началась — запросите код командой !code."
+                reply = "Аренда ещё не началась — запросите код командой !код."
             else:
                 left = max(0, int(job["rental_ends_at"] - time.time()))
                 reply = f"Осталось: {left // 3600} ч. {(left % 3600) // 60} мин."
@@ -264,7 +265,7 @@ def setup(ctx):
             except Exception:
                 pass
 
-        else:  # !продлить / !extend
+        else:  # !продление
             try:
                 ctx.account.send_message(
                     message.chat_id,
