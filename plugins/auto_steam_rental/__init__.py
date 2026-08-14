@@ -6,8 +6,8 @@
 банит такие аккаунты, теряется вся библиотека игр на нём целиком. Это
 осознанный риск владельца, плагин ничего от него не скрывает.
 
-Флоу: покупатель оплачивает лот с тегом [tag] в описании -> бот сразу
-присылает логин/пароль аккаунта с этим тегом -> покупатель пишет !code,
+Флоу: покупатель оплачивает лот в категории (игре) X -> бот сразу
+присылает логин/пароль аккаунта, привязанного к этой категории -> покупатель пишет !code,
 когда Steam просит код Steam Guard, и получает актуальный код -> с этого
 момента идёт отсчёт аренды -> по истечении бот пытается сам сменить
 пароль через официальный визард восстановления (steam_password.py); если
@@ -19,7 +19,6 @@
 покупатель) тоже помечается "нужен ручной сброс" — на всякий случай.
 """
 
-import re
 import threading
 import time
 
@@ -30,13 +29,12 @@ from . import crypto, steam_guard, steam_password
 
 INFO = PluginInfo(
     name="Auto Steam Rental",
-    version="1.0.0",
+    version="1.1.0",
     description="Авто-аренда Steam-аккаунтов: выдача, коды Steam Guard, попытка авто-смены пароля по истечении.",
     author="you",
 )
 
 SECTION = "🎮 Steam-аренда"
-TAG_RE = re.compile(r"\[([a-zA-Z0-9_]+)\]")
 
 STATUS_WAITING_START = "waiting_start"
 STATUS_ACTIVE = "active"
@@ -88,10 +86,16 @@ def setup(ctx):
     def load_mafile(account):
         return __import__("json").loads(crypto.decrypt(account["mafile_enc"]))
 
-    def find_available_account(tag):
+    def find_available_account(subcategory_name):
         accounts = get_accounts()
+        needle = (subcategory_name or "").strip().lower()
+        # сначала аккаунты, привязанные именно к этой категории лота
         for login, acc in accounts.items():
-            if acc["status"] == ACC_AVAILABLE and acc.get("tag", "") == tag:
+            if acc["status"] == ACC_AVAILABLE and acc.get("category", "").strip().lower() == needle and needle:
+                return login, acc
+        # затем — универсальные аккаунты без привязки к категории
+        for login, acc in accounts.items():
+            if acc["status"] == ACC_AVAILABLE and not acc.get("category", ""):
                 return login, acc
         return None, None
 
@@ -106,10 +110,8 @@ def setup(ctx):
         if s["keyword"].lower() not in order.description.lower():
             return
 
-        tag_match = TAG_RE.search(order.description)
-        tag = tag_match.group(1) if tag_match else ""
-
-        login, account = find_available_account(tag)
+        category = getattr(order, "subcategory_name", "") or ""
+        login, account = find_available_account(category)
 
         try:
             chat = ctx.account.get_chat_by_name(order.buyer_username, make_request=True)
@@ -123,7 +125,7 @@ def setup(ctx):
             except Exception:
                 ctx.logger.exception(f"Не удалось оформить авто-возврат по заказу {order.id}")
             ctx.notify_owner(
-                f"⚠️ Заказ {order.id}: нет свободных аккаунтов" + (f" с тегом [{tag}]" if tag else "") +
+                f"⚠️ Заказ {order.id}: нет свободных аккаунтов" + (f" для категории «{category}»" if category else "") +
                 " — оформлен автовозврат."
             )
             return
@@ -141,7 +143,7 @@ def setup(ctx):
             "buyer_username": order.buyer_username,
             "chat_id": chat_id,
             "login": login,
-            "tag": tag,
+            "category": category,
             "duration_seconds": duration_seconds,
             "status": STATUS_WAITING_START,
             "rental_started_at": None,
@@ -433,8 +435,8 @@ def setup(ctx):
         lines = ["<b>Аккаунты:</b>\n"]
         icons = {ACC_AVAILABLE: "🟢", ACC_RENTED: "🔵", ACC_NEEDS_RESET: "🔴"}
         for login, a in accounts.items():
-            tag = f" [{a['tag']}]" if a.get("tag") else ""
-            lines.append(f"{icons.get(a['status'], '❔')} <code>{login}</code>{tag} — {a['status']}")
+            category = f" [{a['category']}]" if a.get("category") else " [любая категория]"
+            lines.append(f"{icons.get(a['status'], '❔')} <code>{login}</code>{category} — {a['status']}")
         ctx.telegram.bot.send_message(call.message.chat.id, "\n".join(lines))
 
     @ctx.telegram.menu_item(SECTION, "➕ Добавить аккаунт", "steamrent:add_ask")
@@ -445,10 +447,10 @@ def setup(ctx):
             def on_password(msg2):
                 password = msg2.text.strip()
 
-                def on_tag(msg3):
-                    tag = msg3.text.strip()
-                    if tag == "-":
-                        tag = ""
+                def on_category(msg3):
+                    category = msg3.text.strip()
+                    if category == "-":
+                        category = ""
 
                     def on_mafile(msg4):
                         document = getattr(msg4, "document", None)
@@ -471,7 +473,7 @@ def setup(ctx):
                         accounts = get_accounts()
                         accounts[login] = {
                             "login": login,
-                            "tag": tag,
+                            "category": category,
                             "password_enc": crypto.encrypt(password),
                             "mafile_enc": crypto.encrypt(__import__("json").dumps(mafile)),
                             "status": ACC_AVAILABLE,
@@ -487,8 +489,10 @@ def setup(ctx):
 
                 ctx.telegram.ask(
                     msg2.chat.id, msg2.from_user.id,
-                    "Тег для привязки к лоту (латиницей, например game1), или '-' без тега?",
-                    on_tag,
+                    "Название категории лота на FunPay для этого аккаунта — точно как оно указано на "
+                    "странице лота (например: 'PUBG: BATTLEGROUNDS — аккаунты'), или '-' если аккаунт "
+                    "подходит под любую категорию (запасной пул)?",
+                    on_category,
                 )
 
             ctx.telegram.ask(msg.chat.id, msg.from_user.id, "Текущий пароль аккаунта?", on_password)
