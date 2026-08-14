@@ -92,3 +92,33 @@ def setup(ctx):
             ctx.telegram.reply(message, f"❌ Не удалось удалить ответ: {e}")
             return
         ctx.telegram.reply(message, "✅ Ответ на отзыв удалён.")
+
+    SECTION = "🌟 Отзывы"
+
+    @ctx.telegram.menu_item(SECTION, "✍️ Ответить на отзыв", "reviews:reply_ask")
+    def cbq_reply_ask(call):
+        def on_id(msg):
+            order_id = msg.text.strip()
+
+            def on_text(msg2):
+                try:
+                    ctx.account.send_review(order_id, msg2.text)
+                    ctx.telegram.bot.send_message(msg2.chat.id, "✅ Ответ на отзыв отправлен.")
+                except Exception as e:
+                    ctx.telegram.bot.send_message(msg2.chat.id, f"❌ Не удалось ответить на отзыв: {e}")
+
+            ctx.telegram.ask(msg.chat.id, msg.from_user.id, "Теперь пришлите текст ответа.", on_text)
+
+        ctx.telegram.ask(call.message.chat.id, call.from_user.id, "Пришлите ID заказа с отзывом.", on_id)
+
+    @ctx.telegram.menu_item(SECTION, "🗑 Удалить ответ", "reviews:delete_ask")
+    def cbq_delete_ask(call):
+        def on_id(msg):
+            order_id = msg.text.strip()
+            try:
+                ctx.account.delete_review(order_id)
+                ctx.telegram.bot.send_message(msg.chat.id, "✅ Ответ на отзыв удалён.")
+            except Exception as e:
+                ctx.telegram.bot.send_message(msg.chat.id, f"❌ Не удалось удалить ответ: {e}")
+
+        ctx.telegram.ask(call.message.chat.id, call.from_user.id, "Пришлите ID заказа.", on_id)

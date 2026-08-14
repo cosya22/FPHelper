@@ -62,6 +62,21 @@ class PluginTelegram:
             return func
         return deco
 
+    def menu_item(self, section: str, label: str, callback_data: str, admin_only: bool = True):
+        """
+        Одновременно регистрирует обработчик колбэка и кнопку с ним в разделе
+        главного Telegram-меню (раздел создаётся сам при первой кнопке в нём).
+        """
+        def deco(func):
+            self._admin.register_callback(callback_data, func, admin_only=admin_only)
+            self._admin.register_menu_button(section, label, callback_data)
+            return func
+        return deco
+
+    def ask(self, chat_id: int | str, user_id: int, prompt: str, on_answer):
+        """Спрашивает текстом и один раз вызывает on_answer(message), когда админ ответит."""
+        self._admin.ask(chat_id, user_id, prompt, on_answer)
+
     def reply(self, message, text: str, **kwargs):
         return self._admin.bot.reply_to(message, text, **kwargs)
 

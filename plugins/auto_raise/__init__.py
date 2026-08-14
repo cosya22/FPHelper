@@ -70,15 +70,36 @@ def setup(ctx):
 
     threading.Thread(target=worker, daemon=True).start()
 
-    @ctx.telegram.command("autoraise")
-    def cmd_status(message):
+    def build_status_text():
         state = get_state()
         status = "включено ✅" if state.get("enabled") else "выключено ⛔"
         ids = state.get("category_ids", [])
+        return (
+            f"<b>Авто-поднятие лотов</b>: {status}\n\n"
+            f"Категории: {', '.join(map(str, ids)) or '—'}"
+        )
+
+    def build_categories_text():
+        categories = ctx.account.get_sorted_categories()
+        if not categories:
+            return "У вас нет активных категорий с лотами."
+        lines = ["<b>Ваши категории:</b>\n"]
+        for cat_id, category in categories.items():
+            lines.append(f"• <code>{cat_id}</code> — {category.name}")
+        return "\n".join(lines)
+
+    def add_category(category_id):
+        state = get_state()
+        if category_id in state["category_ids"]:
+            return False
+        state["category_ids"].append(category_id)
+        save_state(state)
+        return True
+
+    @ctx.telegram.command("autoraise")
+    def cmd_status(message):
         lines = [
-            f"<b>Авто-поднятие лотов</b>: {status}",
-            "",
-            f"Категории: {', '.join(map(str, ids)) or '—'}",
+            build_status_text(),
             "",
             "/autoraise_categories — список ваших категорий с ID",
             "/autoraise_add &lt;id&gt; — добавить категорию",
@@ -91,17 +112,11 @@ def setup(ctx):
     @ctx.telegram.command("autoraise_categories")
     def cmd_categories(message):
         try:
-            categories = ctx.account.get_sorted_categories()
+            text = build_categories_text()
         except Exception as e:
             ctx.telegram.reply(message, f"❌ Не удалось получить категории: {e}")
             return
-        if not categories:
-            ctx.telegram.reply(message, "У вас нет активных категорий с лотами.")
-            return
-        lines = ["<b>Ваши категории:</b>\n"]
-        for cat_id, category in categories.items():
-            lines.append(f"• <code>{cat_id}</code> — {category.name}")
-        ctx.telegram.reply(message, "\n".join(lines))
+        ctx.telegram.reply(message, text)
 
     @ctx.telegram.command("autoraise_add")
     def cmd_add(message):
@@ -110,13 +125,10 @@ def setup(ctx):
             ctx.telegram.reply(message, "Использование: /autoraise_add &lt;category_id&gt;")
             return
         category_id = int(parts[1].strip())
-        state = get_state()
-        if category_id in state["category_ids"]:
+        if add_category(category_id):
+            ctx.telegram.reply(message, f"✅ Категория {category_id} добавлена в авто-поднятие.")
+        else:
             ctx.telegram.reply(message, "Эта категория уже добавлена.")
-            return
-        state["category_ids"].append(category_id)
-        save_state(state)
-        ctx.telegram.reply(message, f"✅ Категория {category_id} добавлена в авто-поднятие.")
 
     @ctx.telegram.command("autoraise_remove")
     def cmd_remove(message):
@@ -147,3 +159,45 @@ def setup(ctx):
         state["enabled"] = False
         save_state(state)
         ctx.telegram.reply(message, "⛔ Авто-поднятие выключено.")
+
+    SECTION = "⬆️ Авто-поднятие"
+
+    @ctx.telegram.menu_item(SECTION, "📊 Статус", "autoraise:status")
+    def cbq_status(call):
+        ctx.telegram.bot.send_message(call.message.chat.id, build_status_text())
+
+    @ctx.telegram.menu_item(SECTION, "📂 Мои категории", "autoraise:categories")
+    def cbq_categories(call):
+        try:
+            text = build_categories_text()
+        except Exception as e:
+            text = f"❌ Не удалось получить категории: {e}"
+        ctx.telegram.bot.send_message(call.message.chat.id, text)
+
+    @ctx.telegram.menu_item(SECTION, "➕ Добавить категорию", "autoraise:add_ask")
+    def cbq_add_ask(call):
+        def on_id(msg):
+            if not msg.text.strip().isdigit():
+                ctx.telegram.bot.send_message(msg.chat.id, "ID должен быть числом.")
+                return
+            category_id = int(msg.text.strip())
+            if add_category(category_id):
+                ctx.telegram.bot.send_message(msg.chat.id, f"✅ Категория {category_id} добавлена.")
+            else:
+                ctx.telegram.bot.send_message(msg.chat.id, "Эта категория уже добавлена.")
+
+        ctx.telegram.ask(call.message.chat.id, call.from_user.id, "Пришлите ID категории.", on_id)
+
+    @ctx.telegram.menu_item(SECTION, "▶️ Включить", "autoraise:on")
+    def cbq_on(call):
+        state = get_state()
+        state["enabled"] = True
+        save_state(state)
+        ctx.telegram.bot.send_message(call.message.chat.id, "✅ Авто-поднятие включено.")
+
+    @ctx.telegram.menu_item(SECTION, "⏸ Выключить", "autoraise:off")
+    def cbq_off(call):
+        state = get_state()
+        state["enabled"] = False
+        save_state(state)
+        ctx.telegram.bot.send_message(call.message.chat.id, "⛔ Авто-поднятие выключено.")

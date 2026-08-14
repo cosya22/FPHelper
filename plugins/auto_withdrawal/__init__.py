@@ -75,11 +75,10 @@ def setup(ctx):
 
     threading.Thread(target=worker, daemon=True).start()
 
-    @ctx.telegram.command("withdrawal_status")
-    def cmd_status(message):
+    def build_status_text():
         state = get_state()
         status = "включён ✅" if state["enabled"] else "выключен ⛔"
-        text = (
+        return (
             f"<b>Авто-вывод</b>: {status}\n\n"
             f"Валюта: {state['currency'] or '—'}\n"
             f"Кошелёк: {state['wallet'] or '—'}\n"
@@ -92,7 +91,21 @@ def setup(ctx):
             "Сумма — число или <code>all</code> (весь баланс)\n\n"
             "/withdrawal_on — включить · /withdrawal_off — выключить"
         )
-        ctx.telegram.reply(message, text)
+
+    def apply_setup(currency_raw, wallet_raw, address, amount_raw, interval_hours):
+        state = get_state()
+        state.update(
+            currency=currency_raw.upper(),
+            wallet=wallet_raw.upper(),
+            address=address,
+            amount_mode=amount_raw.lower() if amount_raw.lower() == "all" else amount_raw,
+            interval_hours=interval_hours,
+        )
+        save_state(state)
+
+    @ctx.telegram.command("withdrawal_status")
+    def cmd_status(message):
+        ctx.telegram.reply(message, build_status_text())
 
     @ctx.telegram.command("withdrawal_setup")
     def cmd_setup(message):
@@ -122,15 +135,7 @@ def setup(ctx):
             ctx.telegram.reply(message, "Интервал должен быть числом (часы).")
             return
 
-        state = get_state()
-        state.update(
-            currency=currency_raw.upper(),
-            wallet=wallet_raw.upper(),
-            address=address,
-            amount_mode=amount_raw.lower() if amount_raw.lower() == "all" else amount_raw,
-            interval_hours=interval_hours,
-        )
-        save_state(state)
+        apply_setup(currency_raw, wallet_raw, address, amount_raw, interval_hours)
         ctx.telegram.reply(
             message,
             "✅ Настройки сохранены. Проверьте их через /withdrawal_status и включите /withdrawal_on, когда будете готовы.",
@@ -152,3 +157,83 @@ def setup(ctx):
         state["enabled"] = False
         save_state(state)
         ctx.telegram.reply(message, "⛔ Авто-вывод выключен.")
+
+    SECTION = "💸 Авто-вывод"
+
+    @ctx.telegram.menu_item(SECTION, "📊 Статус", "withdrawal:status")
+    def cbq_status(call):
+        ctx.telegram.bot.send_message(call.message.chat.id, build_status_text())
+
+    @ctx.telegram.menu_item(SECTION, "⚙️ Настроить", "withdrawal:setup_ask")
+    def cbq_setup_ask(call):
+        def on_currency(msg):
+            currency_raw = msg.text.strip()
+            if currency_raw.upper() not in Currency.__members__:
+                ctx.telegram.bot.send_message(msg.chat.id, f"Неизвестная валюта. Варианты: {', '.join(Currency.__members__)}")
+                return
+
+            def on_wallet(msg2):
+                wallet_raw = msg2.text.strip()
+                if wallet_raw.upper() not in Wallet.__members__:
+                    ctx.telegram.bot.send_message(msg2.chat.id, f"Неизвестный кошелёк. Варианты: {', '.join(Wallet.__members__)}")
+                    return
+
+                def on_address(msg3):
+                    address = msg3.text.strip()
+
+                    def on_amount(msg4):
+                        amount_raw = msg4.text.strip()
+                        if amount_raw.lower() != "all":
+                            try:
+                                float(amount_raw)
+                            except ValueError:
+                                ctx.telegram.bot.send_message(msg4.chat.id, "Сумма должна быть числом или 'all'.")
+                                return
+
+                        def on_interval(msg5):
+                            try:
+                                interval_hours = float(msg5.text.strip())
+                            except ValueError:
+                                ctx.telegram.bot.send_message(msg5.chat.id, "Интервал должен быть числом (часы).")
+                                return
+                            apply_setup(currency_raw, wallet_raw, address, amount_raw, interval_hours)
+                            ctx.telegram.bot.send_message(
+                                msg5.chat.id,
+                                "✅ Настройки сохранены. Проверьте /withdrawal_status и включите вывод отдельной кнопкой.",
+                            )
+
+                        ctx.telegram.ask(msg4.chat.id, msg4.from_user.id, "Интервал между выводами в часах?", on_interval)
+
+                    ctx.telegram.ask(
+                        msg3.chat.id, msg3.from_user.id,
+                        "Сумма к выводу — число или 'all' (весь баланс)?", on_amount,
+                    )
+
+                ctx.telegram.ask(msg2.chat.id, msg2.from_user.id, "Адрес/реквизиты для вывода?", on_address)
+
+            ctx.telegram.ask(
+                msg.chat.id, msg.from_user.id,
+                f"Кошелёк? Варианты: {', '.join(Wallet.__members__)}", on_wallet,
+            )
+
+        ctx.telegram.ask(
+            call.message.chat.id, call.from_user.id,
+            f"Валюта? Варианты: {', '.join(Currency.__members__)}", on_currency,
+        )
+
+    @ctx.telegram.menu_item(SECTION, "▶️ Включить", "withdrawal:on")
+    def cbq_on(call):
+        state = get_state()
+        if not state["currency"] or not state["wallet"] or not state["address"]:
+            ctx.telegram.bot.send_message(call.message.chat.id, "Сначала настройте вывод кнопкой «⚙️ Настроить».")
+            return
+        state["enabled"] = True
+        save_state(state)
+        ctx.telegram.bot.send_message(call.message.chat.id, "✅ Авто-вывод включён.")
+
+    @ctx.telegram.menu_item(SECTION, "⏸ Выключить", "withdrawal:off")
+    def cbq_off(call):
+        state = get_state()
+        state["enabled"] = False
+        save_state(state)
+        ctx.telegram.bot.send_message(call.message.chat.id, "⛔ Авто-вывод выключен.")

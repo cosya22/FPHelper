@@ -31,6 +31,18 @@ def setup(ctx):
                 return keyword, rule
         return None, None
 
+    def build_list_text():
+        rules = get_rules()
+        if not rules:
+            return "Правил авто-выдачи пока нет."
+        lines = ["<b>Правила авто-выдачи:</b>\n"]
+        for keyword, rule in rules.items():
+            if rule["type"] == "text":
+                lines.append(f"• <b>{keyword}</b> — текст: {rule['content'][:50]}")
+            else:
+                lines.append(f"• <b>{keyword}</b> — склад: {len(rule.get('items', []))} шт.")
+        return "\n".join(lines)
+
     @ctx.events.new_order
     def on_order(event):
         order = event.order
@@ -71,17 +83,7 @@ def setup(ctx):
 
     @ctx.telegram.command("delivery_list")
     def cmd_list(message):
-        rules = get_rules()
-        if not rules:
-            ctx.telegram.reply(message, "Правил авто-выдачи пока нет.")
-            return
-        lines = ["<b>Правила авто-выдачи:</b>\n"]
-        for keyword, rule in rules.items():
-            if rule["type"] == "text":
-                lines.append(f"• <b>{keyword}</b> — текст: {rule['content'][:50]}")
-            else:
-                lines.append(f"• <b>{keyword}</b> — склад: {len(rule.get('items', []))} шт.")
-        ctx.telegram.reply(message, "\n".join(lines))
+        ctx.telegram.reply(message, build_list_text())
 
     @ctx.telegram.command("delivery_add_text")
     def cmd_add_text(message):
@@ -128,3 +130,66 @@ def setup(ctx):
         del rules[keyword]
         save_rules(rules)
         ctx.telegram.reply(message, f"✅ Правило «{keyword}» удалено.")
+
+    SECTION = "🚀 Авто-выдача"
+
+    @ctx.telegram.menu_item(SECTION, "📋 Список правил", "delivery:list")
+    def cbq_list(call):
+        ctx.telegram.bot.send_message(call.message.chat.id, build_list_text())
+
+    @ctx.telegram.menu_item(SECTION, "➕ Текстовое правило", "delivery:add_text_ask")
+    def cbq_add_text_ask(call):
+        def on_keyword(msg):
+            keyword = msg.text.strip()
+
+            def on_text(msg2):
+                rules = get_rules()
+                rules[keyword] = {"type": "text", "content": msg2.text}
+                save_rules(rules)
+                ctx.telegram.bot.send_message(msg2.chat.id, f"✅ Правило «{keyword}» добавлено (текст).")
+
+            ctx.telegram.ask(msg.chat.id, msg.from_user.id, "Теперь пришлите текст выдачи.", on_text)
+
+        ctx.telegram.ask(
+            call.message.chat.id, call.from_user.id,
+            "Пришлите ключевое слово (подстрока в названии лота, на которую сработает выдача).",
+            on_keyword,
+        )
+
+    @ctx.telegram.menu_item(SECTION, "📦 Добавить на склад", "delivery:stock_add_ask")
+    def cbq_stock_add_ask(call):
+        def on_keyword(msg):
+            keyword = msg.text.strip()
+
+            def on_item(msg2):
+                rules = get_rules()
+                rule = rules.get(keyword, {"type": "stock", "items": []})
+                rule["type"] = "stock"
+                rule.setdefault("items", []).append(msg2.text)
+                rules[keyword] = rule
+                save_rules(rules)
+                ctx.telegram.bot.send_message(
+                    msg2.chat.id, f"✅ Добавлено на склад «{keyword}» ({len(rule['items'])} шт. в наличии)."
+                )
+
+            ctx.telegram.ask(msg.chat.id, msg.from_user.id, "Теперь пришлите позицию (код/ключ) для склада.", on_item)
+
+        ctx.telegram.ask(
+            call.message.chat.id, call.from_user.id,
+            "Пришлите ключевое слово, на которое настроен склад.",
+            on_keyword,
+        )
+
+    @ctx.telegram.menu_item(SECTION, "🗑 Удалить правило", "delivery:remove_ask")
+    def cbq_remove_ask(call):
+        def on_keyword(msg):
+            keyword = msg.text.strip()
+            rules = get_rules()
+            if keyword not in rules:
+                ctx.telegram.bot.send_message(msg.chat.id, "Такого правила нет.")
+                return
+            del rules[keyword]
+            save_rules(rules)
+            ctx.telegram.bot.send_message(msg.chat.id, f"✅ Правило «{keyword}» удалено.")
+
+        ctx.telegram.ask(call.message.chat.id, call.from_user.id, "Пришлите ключевое слово правила для удаления.", on_keyword)

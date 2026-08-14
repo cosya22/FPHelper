@@ -30,6 +30,8 @@ FPHelper подключается к вашему аккаунту FunPay и в 
 - **🔌 Постоянное подключение к FunPay** — держит сессию, слушает события через `Runner`
 - **💬 Реакция на новые сообщения** в чатах в реальном времени
 - **🛒 Реакция на новые заказы** и на смену их статуса
+- **🎪 Кнопочное меню в Telegram** — `/start` открывает разделы по кнопкам, без запоминания команд;
+  для действий с параметрами (ID заказа, текст и т.п.) бот сам спрашивает текстом по шагам
 - **🤖 Telegram-панель управления** с несколькими админами (не нужно шарить один аккаунт)
 - **🆔 Самостоятельная выдача доступа** — `/whoami` + `/addadmin`, без правки файлов и перезапуска
 - **🔔 Рассылка уведомлений** всем админам разом (`notify_admins`) — например, о новом заказе
@@ -198,13 +200,50 @@ run.bat
   |---|---|
   | `ctx.account` | объект `FunPayAPI.Account` — `send_message`, `get_order`, `save_lot`, `get_sells`... |
   | `ctx.events` | декораторы подписки на события FunPay (см. выше) |
-  | `ctx.telegram` | `@ctx.telegram.command("имя")`, `@ctx.telegram.callback("префикс")`, `.reply()`, `.send()`, `.bot` (сырой `telebot.TeleBot`) |
+  | `ctx.telegram` | `@ctx.telegram.command("имя")`, `@ctx.telegram.callback("префикс")`, `@ctx.telegram.menu_item(...)`, `.ask(...)`, `.reply()`, `.send()`, `.bot` (сырой `telebot.TeleBot`) |
   | `ctx.storage` | JSON-хранилище плагина: `.get(key, default)`, `.set(key, value)`, `.update({...})`, `.all()` |
   | `ctx.logger` | `logging.Logger`, уже настроенный под имя плагина |
   | `ctx.notify_admins(text)` | отправить сообщение всем админам разом |
 
   По умолчанию Telegram-команды плагина доступны только админам. Чтобы сделать команду
   публичной: `@ctx.telegram.command("start", admin_only=False)`.
+
+</details>
+
+<details>
+  <summary><strong>🎪 Кнопки в главном меню и запрос текста (<code>ask</code>)</strong></summary>
+
+  `@ctx.telegram.menu_item(раздел, подпись, callback_data)` одновременно регистрирует
+  колбэк-обработчик и кнопку с ним — раздел меню создаётся сам при первой такой кнопке
+  и появляется в `/start` автоматически.
+
+  ```python
+  @ctx.telegram.menu_item("📦 Мой раздел", "📋 Показать список", "myplugin:list")
+  def cbq_list(call):
+      ctx.telegram.bot.send_message(call.message.chat.id, "тут список")
+  ```
+
+  Если действию нужен параметр (ID заказа, текст и т.п.) — используйте `ctx.telegram.ask()`,
+  он спросит текстом и один раз вызовет колбэк с ответом; несколько `ask()` подряд
+  (внутри друг друга) дают цепочку из нескольких вопросов:
+
+  ```python
+  @ctx.telegram.menu_item("📦 Мой раздел", "➕ Добавить", "myplugin:add_ask")
+  def cbq_add_ask(call):
+      def on_name(msg):
+          name = msg.text.strip()
+
+          def on_value(msg2):
+              ctx.storage.set(name, msg2.text)
+              ctx.telegram.bot.send_message(msg2.chat.id, f"✅ «{name}» сохранено.")
+
+          ctx.telegram.ask(msg.chat.id, msg.from_user.id, "Теперь пришлите значение.", on_value)
+
+      ctx.telegram.ask(call.message.chat.id, call.from_user.id, "Пришлите имя.", on_name)
+  ```
+
+  Пользователь может в любой момент отменить ожидание командой `/cancel` (уже
+  встроена в ядро — плагину ничего для этого делать не нужно).
 
 </details>
 
