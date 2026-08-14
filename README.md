@@ -40,15 +40,29 @@ FPHelper подключается к вашему аккаунту FunPay и с�
 2. Скачайте проект и откройте папку.
 3. Запустите `install.bat` — поставит всё нужное.
 4. Запустите `run.bat`.
-5. При первом запуске бот спросит: golden key от FunPay, токен Telegram-бота (получить у [@BotFather](https://t.me/BotFather)), ваш Telegram ID и, если нужно, прокси.
 
 ```bash
 install.bat
 run.bat
 ```
 
-Дальше бот сам подключится к FunPay — всё управление в Telegram, доступ есть
-только у вас (Telegram ID, который вы указали при настройке).
+### 🍎 macOS / 🐧 Linux
+1. Установите **Python 3.10+**: на macOS — `brew install python3`, на Linux — через пакетный менеджер дистрибутива (обычно уже стоит, проверить: `python3 --version`).
+2. Скачайте проект и откройте папку в терминале.
+3. Выполните по очереди:
+
+```bash
+chmod +x install.sh run.sh
+./install.sh
+./run.sh
+```
+
+### Первый запуск
+Бот спросит в консоли: golden key от FunPay (F12 на funpay.com → Application
+→ Cookies → `golden_key`), токен Telegram-бота (получить у [@BotFather](https://t.me/BotFather)),
+ваш Telegram ID (узнать у [@userinfobot](https://t.me/userinfobot)) и, если
+нужно, прокси. Дальше бот сам подключится к FunPay — всё управление в
+Telegram, доступ есть только у вас.
 
 ## 🧩 Плагины
 
