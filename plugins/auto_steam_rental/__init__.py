@@ -29,7 +29,7 @@ from . import crypto, steam_guard, steam_password
 
 INFO = PluginInfo(
     name="Auto Steam Rental",
-    version="1.1.0",
+    version="1.2.0",
     description="Авто-аренда Steam-аккаунтов: выдача, коды Steam Guard, попытка авто-смены пароля по истечении.",
     author="you",
 )
@@ -58,7 +58,7 @@ def setup(ctx):
         s.setdefault("duration_seconds_per_unit", 3600.0)
         s.setdefault("grace_period_minutes", 30.0)
         s.setdefault("review_bonus_minutes", 0.0)
-        s.setdefault("lot_ids", [])
+        s.setdefault("lot_categories", {})  # {"lot_id": "категория" | "" (любая)}
         s.setdefault("enabled", False)
         return s
 
@@ -98,6 +98,16 @@ def setup(ctx):
             if acc["status"] == ACC_AVAILABLE and not acc.get("category", ""):
                 return login, acc
         return None, None
+
+    def has_available_for_category(category):
+        needle = (category or "").strip().lower()
+        for acc in get_accounts().values():
+            if acc["status"] != ACC_AVAILABLE:
+                continue
+            acc_category = acc.get("category", "").strip().lower()
+            if not acc_category or acc_category == needle:
+                return True
+        return False
 
     # ---------- события FunPay: выдача ----------
 
@@ -343,26 +353,26 @@ def setup(ctx):
         while True:
             time.sleep(LOT_CHECK_INTERVAL)
             s = get_settings()
-            if not s["enabled"] or not s["lot_ids"]:
+            if not s["enabled"] or not s["lot_categories"]:
                 continue
-            accounts = get_accounts()
-            has_available = any(a["status"] == ACC_AVAILABLE for a in accounts.values())
             deactivated = get_deactivated_lots()
             changed = False
-            for lot_id in s["lot_ids"]:
+            for lot_id_str, category in s["lot_categories"].items():
+                lot_id = int(lot_id_str)
+                label = f"«{category}»" if category else "без привязки к игре"
                 try:
-                    if not has_available:
+                    if not has_available_for_category(category):
                         if lot_id not in deactivated:
                             set_lot_active(lot_id, False)
                             deactivated.add(lot_id)
                             changed = True
-                            ctx.notify_owner(f"⏸ Лот {lot_id} снят с продажи: нет свободных аккаунтов.")
+                            ctx.notify_owner(f"⏸ Лот {lot_id} ({label}) снят с продажи: нет свободных аккаунтов под эту игру.")
                     else:
                         if lot_id in deactivated:
                             set_lot_active(lot_id, True)
                             deactivated.discard(lot_id)
                             changed = True
-                            ctx.notify_owner(f"▶️ Лот {lot_id} снова в продаже: появились свободные аккаунты.")
+                            ctx.notify_owner(f"▶️ Лот {lot_id} ({label}) снова в продаже: появился свободный аккаунт.")
                 except Exception:
                     ctx.logger.exception(f"Не удалось обновить состояние лота {lot_id}")
             if changed:
@@ -412,13 +422,17 @@ def setup(ctx):
         avail = sum(1 for a in accounts.values() if a["status"] == ACC_AVAILABLE)
         rented = sum(1 for a in accounts.values() if a["status"] == ACC_RENTED)
         needs_reset = sum(1 for a in accounts.values() if a["status"] == ACC_NEEDS_RESET)
+        lots_parts = []
+        for lid, cat in s["lot_categories"].items():
+            lots_parts.append(f"{lid} ({cat if cat else 'любая'})")
+        lots_text = ", ".join(lots_parts) or "—"
         return (
             f"<b>Steam-аренда</b>: {state}\n\n"
             f"Ключевое слово: {s['keyword']}\n"
             f"Длительность: {s['duration_seconds_per_unit'] / 3600:.1f} ч. за единицу\n"
             f"Grace-период: {s['grace_period_minutes']} мин.\n"
             f"Бонус за отзыв: {s['review_bonus_minutes']} мин.\n"
-            f"Лоты для авто-вкл/выкл: {', '.join(map(str, s['lot_ids'])) or '—'}\n\n"
+            f"Лоты для авто-вкл/выкл: {lots_text}\n\n"
             f"Аккаунтов: {len(accounts)} (свободно {avail}, в аренде {rented}, нужен сброс {needs_reset})"
         )
 
@@ -560,21 +574,46 @@ def setup(ctx):
                             return
 
                         def on_lots(msg5):
-                            try:
-                                lot_ids = [int(x.strip()) for x in msg5.text.split(",") if x.strip()]
-                            except ValueError:
-                                ctx.telegram.bot.send_message(msg5.chat.id, "Нужны числа через запятую.")
-                                return
+                            text = msg5.text.strip()
+                            lot_categories = {}
+                            if text != "-":
+                                for line in text.splitlines():
+                                    line = line.strip()
+                                    if not line:
+                                        continue
+                                    if ":" not in line:
+                                        ctx.telegram.bot.send_message(
+                                            msg5.chat.id, f"Строка «{line}» не в формате ID_лота:категория, пропущена."
+                                        )
+                                        continue
+                                    lot_id_part, category_part = line.split(":", 1)
+                                    lot_id_part = lot_id_part.strip()
+                                    if not lot_id_part.isdigit():
+                                        ctx.telegram.bot.send_message(
+                                            msg5.chat.id, f"«{lot_id_part}» не похоже на ID лота, строка пропущена."
+                                        )
+                                        continue
+                                    category = category_part.strip()
+                                    if category == "-":
+                                        category = ""
+                                    lot_categories[lot_id_part] = category
                             s = get_settings()
                             s["keyword"] = keyword
                             s["duration_seconds_per_unit"] = hours * 3600
                             s["grace_period_minutes"] = grace
                             s["review_bonus_minutes"] = bonus
-                            s["lot_ids"] = lot_ids
+                            s["lot_categories"] = lot_categories
                             save_settings(s)
                             ctx.telegram.bot.send_message(msg5.chat.id, "✅ Настройки сохранены.")
 
-                        ctx.telegram.ask(msg4.chat.id, msg4.from_user.id, "ID лотов через запятую (для авто-вкл/выкл)?", on_lots)
+                        ctx.telegram.ask(
+                            msg4.chat.id, msg4.from_user.id,
+                            "Лоты для авто-вкл/выкл по наличию аккаунтов. Каждый лот на новой строке в формате "
+                            "ID_лота:категория (категория — как у аккаунта, или '-' для лота без привязки к "
+                            "конкретной игре). Например:\n123456:PUBG: BATTLEGROUNDS — аккаунты\n789012:-\n"
+                            "Пришлите '-', если авто-вкл/выкл не нужен.",
+                            on_lots,
+                        )
 
                     ctx.telegram.ask(msg3.chat.id, msg3.from_user.id, "Бонус за отзыв 5⭐, в минутах (0 — выключить)?", on_bonus)
 
