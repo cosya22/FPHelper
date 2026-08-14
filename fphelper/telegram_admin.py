@@ -145,7 +145,7 @@ class TelegramAdmin:
         self.register_menu_button("👥 Админы", "📋 Список", "core:admins")
         self.register_menu_button("👥 Админы", "➕ Добавить", "core:addadmin_ask")
         self.register_menu_button("👥 Админы", "➖ Удалить", "core:deladmin_ask")
-        self.register_menu_button("🧩 Плагины", "📋 Список плагинов", "core:plugins")
+        self.register_menu_button("🧩 Модули", "📋 Список модулей и плагинов", "core:plugins")
 
         @self.bot.message_handler(commands=["whoami"])
         def cmd_whoami(message):
@@ -255,10 +255,20 @@ class TelegramAdmin:
 
     def _plugins_text(self) -> str:
         if not self._plugins:
-            return "Нет загруженных плагинов."
-        lines = ["<b>Загруженные плагины:</b>\n"]
-        for p in self._plugins:
-            lines.append(f"• <b>{p.info.name}</b> v{p.info.version} — {p.info.description}")
+            return "Нет загруженных модулей."
+        builtin = [p for p in self._plugins if getattr(p, "builtin", False)]
+        custom = [p for p in self._plugins if not getattr(p, "builtin", False)]
+        lines = []
+        if builtin:
+            lines.append("<b>Встроенные модули:</b>\n")
+            for p in builtin:
+                lines.append(f"• <b>{p.info.name}</b> v{p.info.version} — {p.info.description}")
+        if custom:
+            if lines:
+                lines.append("")
+            lines.append("<b>Плагины:</b>\n")
+            for p in custom:
+                lines.append(f"• <b>{p.info.name}</b> v{p.info.version} — {p.info.description}")
         return "\n".join(lines)
 
     def _do_add_admin(self, message: Message, raw_id: str) -> None:

@@ -1,11 +1,13 @@
 """Просмотр чатов и ответ покупателям прямо из Telegram."""
 
+import io
+
 from fphelper import PluginInfo
 
 INFO = PluginInfo(
     name="Chats",
-    version="1.0.0",
-    description="/chats — список чатов, /reply <chat_id> <текст> — ответить.",
+    version="1.1.0",
+    description="/chats — список чатов, /reply <chat_id> <текст> — ответить, отправка картинок через меню.",
     author="you",
 )
 
@@ -106,3 +108,26 @@ def setup(ctx):
             ctx.telegram.ask(msg.chat.id, msg.from_user.id, "Теперь пришлите текст ответа.", on_text)
 
         ctx.telegram.ask(call.message.chat.id, call.from_user.id, "Пришлите ID чата.", on_chat_id)
+
+    @ctx.telegram.menu_item(SECTION, "🖼️ Отправить картинку", "chats:image_ask")
+    def cbq_image_ask(call):
+        def on_chat_id(msg):
+            chat_id = msg.text.strip()
+
+            def on_photo(msg2):
+                photo = getattr(msg2, "photo", None)
+                if not photo:
+                    ctx.telegram.bot.send_message(msg2.chat.id, "Это не похоже на фото. Отменено, попробуйте ещё раз кнопкой.")
+                    return
+                try:
+                    file_info = ctx.telegram.bot.get_file(photo[-1].file_id)
+                    downloaded = ctx.telegram.bot.download_file(file_info.file_path)
+                    image_id = ctx.account.upload_image(io.BytesIO(downloaded))
+                    ctx.account.send_image(chat_id, image_id)
+                    ctx.telegram.bot.send_message(msg2.chat.id, "✅ Картинка отправлена.")
+                except Exception as e:
+                    ctx.telegram.bot.send_message(msg2.chat.id, f"❌ Не удалось отправить картинку: {e}")
+
+            ctx.telegram.ask(msg.chat.id, msg.from_user.id, "Теперь пришлите саму картинку.", on_photo)
+
+        ctx.telegram.ask(call.message.chat.id, call.from_user.id, "Пришлите ID чата, куда отправить картинку.", on_chat_id)

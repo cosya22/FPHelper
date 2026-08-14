@@ -6,7 +6,7 @@ import threading
 from fphelper.config import CONFIG_PATH, load_or_create_config
 from fphelper.events import EventBus
 from fphelper.funpay_client import FunPayClient
-from fphelper.plugin_manager import load_plugins
+from fphelper.plugin_manager import load_builtin, load_plugins
 from fphelper.telegram_admin import TelegramAdmin
 
 
@@ -48,14 +48,16 @@ def main() -> None:
     )
     logger.info(f"Подключено: {fp_client.account.username} (ID {fp_client.account.id})")
 
+    builtin = load_builtin(fp_client.account, bus, admin)
     plugins = load_plugins(fp_client.account, bus, admin)
-    admin.set_plugins(plugins)
+    admin.set_plugins(builtin + plugins)
 
     tg_thread = threading.Thread(target=admin.run, daemon=True)
     tg_thread.start()
 
     admin.notify_admins(
-        f"✅ FPHelper запущен.\nАккаунт: {fp_client.account.username}\nПлагинов загружено: {len(plugins)}"
+        f"✅ FPHelper запущен.\nАккаунт: {fp_client.account.username}\n"
+        f"Встроенных модулей: {len(builtin)}\nПлагинов: {len(plugins)}"
     )
 
     try:
