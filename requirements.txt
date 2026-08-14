@@ -1,2 +1,4 @@
 FunPayAPI
 pyTelegramBotAPI
+pyfragment
+cryptography
