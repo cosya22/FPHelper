@@ -1,110 +1,153 @@
 # FPHelper
+[![python](https://img.shields.io/badge/python-3.10%2B-yellow?style=for-the-badge&logo=python)](https://www.python.org/downloads/)
+[![plugins](https://img.shields.io/badge/%F0%9F%A7%A9%20%D0%BF%D0%BB%D0%B0%D0%B3%D0%B8%D0%BD%D1%8B-%D1%81%D0%B2%D0%BE%D0%B8-green?style=for-the-badge)](#-для-разработчиков-плагинов)
+[![funpayapi](https://img.shields.io/badge/FunPayAPI-GPLv3-blue?style=for-the-badge)](https://pypi.org/project/FunPayAPI/)
+[![telegram](https://img.shields.io/badge/telegram-мультиадмины-2CA5E0?style=for-the-badge&logo=telegram)](#-несколько-админов)
 
-Свой движок-помощник для продавцов на FunPay: подключается к аккаунту, слушает
-события (новые сообщения, заказы, смена статуса), управляется через Telegram
-несколькими админами, и расширяется плагинами.
+Бот-помощник для продавцов FunPay с открытой системой плагинов и поддержкой нескольких админов 🤖🟩
 
-Построен на официальной библиотеке [`FunPayAPI`](https://pypi.org/project/FunPayAPI/)
-(автор Woopertail, лицензия **GPLv3**) и [`pyTelegramBotAPI`](https://pypi.org/project/pyTelegramBotAPI/)
-(MIT). Весь остальной код в этом репозитории — оригинальный.
+---
 
-> **О лицензии.** `FunPayAPI` распространяется под GPLv3. Если вы захотите
-> распространять/продавать сам движок (не только плагины) в закрытом,
-> обфусцированном виде — сверьтесь с юристом на предмет совместимости с GPLv3.
-> Продажа отдельных плагинов как самостоятельных файлов, устанавливаемых поверх
-> уже работающего движка, — более безопасная с этой точки зрения модель, и именно
-> для неё спроектирован плагин-API ниже.
+## 🗺️ Навигация
+- **[Возможности](#️-возможности)**
+- **[Установка](#️-установка)**
+- **[Несколько админов](#-несколько-админов)**
+- **[Для разработчиков плагинов](#-для-разработчиков-плагинов)**
+- **[Структура проекта](#-структура-проекта)**
+- **[О лицензии](#️-о-лицензии)**
 
-## Установка
+## ⚙️ Возможности
 
-Требуется Python 3.10+.
+### 🤖 Управление в Telegram
+- **🔐 Мультиадминство** — несколько человек управляют одним ботом
+- **🆔 `/whoami`** — узнать свой Telegram ID и попроситься в админы
+- **📋 `/plugins`** — список загруженных плагинов
+- **🔔 Рассылка админам** — уведомления о заказах/событиях всем сразу
+
+### ✨ Ядро
+- **🧩 Система плагинов** — папка `plugins/`, любой плагин с `setup(ctx)` подхватывается сам
+- **📡 Шина событий FunPay** — новые сообщения, заказы, смена статуса заказа и другие события Runner'а
+- **💾 Изолированное хранилище** — у каждого плагина своё JSON-хранилище (`ctx.storage`)
+- **⚙️ Мастер первого запуска** — golden key, токен бота и первый админ настраиваются один раз, без ручной правки файлов
+
+## ⬇️ Установка
+
+### 🔷 Windows
+1. Установите **Python 3.10+** с [официального сайта](https://www.python.org/downloads/) (отметьте `Add to PATH`).
+2. Скачайте проект (`git clone` или архивом) и откройте папку.
+3. Запустите `install.bat` — создастся виртуальное окружение и установятся зависимости.
+4. Запустите `run.bat`.
+5. При первом запуске введите в консоли: golden key от FunPay, токен Telegram-бота (от [@BotFather](https://t.me/BotFather)) и свой Telegram ID.
 
 ```bash
 install.bat
-```
-
-Это создаст виртуальное окружение `.venv` и поставит зависимости. Дальше:
-
-```bash
 run.bat
 ```
 
-При первом запуске бот спросит:
-1. **Golden key** — кука вашего аккаунта FunPay (браузер → F12 → Application →
-   Cookies → `golden_key` на funpay.com).
-2. **Токен Telegram-бота** — получить у [@BotFather](https://t.me/BotFather)
-   командой `/newbot`.
-3. **Ваш Telegram ID** — узнать у [@userinfobot](https://t.me/userinfobot) или
-   просто написать `/whoami` любому боту.
+Дальше бот сам подключится к FunPay и поднимет Telegram-бота — управление полностью там.
 
-Всё сохранится в `config.json` — этот файл никому не передавайте, в нём секреты
-(добавлен в `.gitignore`, в git не попадёт).
+## 👥 Несколько админов
 
-## Несколько админов
+| Команда | Доступ | Что делает |
+|---|---|---|
+| `/whoami` | всем | показать свой Telegram ID |
+| `/admins` | админам | список текущих админов |
+| `/addadmin <id>` | админам | добавить нового админа |
+| `/deladmin <id>` | админам | удалить админа (кроме себя) |
+| `/plugins` | админам | список загруженных плагинов |
 
-- `/whoami` — работает для всех, показывает Telegram ID (чтобы узнать свой ID
-  и передать действующему админу)
-- `/admins` — список текущих админов
-- `/addadmin <id>` — добавить админа
-- `/deladmin <id>` — удалить админа (кроме себя)
-- `/plugins` — список загруженных плагинов
+Флоу добавления второго админа: новый человек пишет боту `/whoami`, присылает свой ID
+действующему админу, тот вводит `/addadmin <id>` — готово, без перезапуска бота.
 
-Все команды, кроме `/whoami`, доступны только тем, чей Telegram ID уже в
-списке админов.
+## 📚 Для разработчиков плагинов
 
-## Как устроены плагины
+Плагин — папка в `plugins/` с файлом `__init__.py`, где заданы `INFO` (метаданные) и
+функция `setup(ctx)`, вызываемая один раз при старте бота.
 
-Плагин — это папка внутри `plugins/` с файлом `__init__.py`, где есть:
-- `INFO` — объект `PluginInfo` (имя, версия, описание, автор)
-- `setup(ctx)` — функция, вызываемая при старте бота; в ней плагин
-  подписывается на события и регистрирует свои Telegram-команды
+<details>
+  <summary><strong>📌 Доступные события (<code>ctx.events</code>)</strong></summary>
 
-Смотрите готовый пример: [`plugins/example_autoreply/__init__.py`](plugins/example_autoreply/__init__.py).
+  | Декоратор | Когда срабатывает | Что приходит в обработчик |
+  |---|---|---|
+  | `@ctx.events.new_message` | новое сообщение в чате | `NewMessageEvent` (`.message`) |
+  | `@ctx.events.new_order` | новый заказ | `NewOrderEvent` (`.order`) |
+  | `@ctx.events.order_status_changed` | статус заказа изменился | `OrderStatusChangedEvent` (`.order`) |
+  | `@ctx.events.chats_list_changed` | список чатов изменился | `ChatsListChangedEvent` |
+  | `@ctx.events.orders_list_changed` | список заказов изменился | `OrdersListChangedEvent` |
 
-### Что доступно в `ctx` (`PluginContext`)
+</details>
 
-| Поле | Что это |
-|---|---|
-| `ctx.account` | объект `FunPayAPI.Account` — вся работа с FunPay (`send_message`, `get_order`, `save_lot`, `get_sells`, ...) |
-| `ctx.events` | декораторы подписки на события: `@ctx.events.new_message`, `@ctx.events.new_order`, `@ctx.events.order_status_changed`, `@ctx.events.chats_list_changed`, `@ctx.events.orders_list_changed` |
-| `ctx.telegram` | `@ctx.telegram.command("имя")` и `@ctx.telegram.callback("префикс")` для своих команд/кнопок; `ctx.telegram.reply(...)`, `ctx.telegram.send(...)`, `ctx.telegram.bot` — сырой объект `telebot.TeleBot` для сложных случаев |
-| `ctx.storage` | приватный JSON-стор плагина: `ctx.storage.get(key, default)`, `.set(key, value)`, `.update({...})`, `.all()` |
-| `ctx.logger` | `logging.Logger`, уже настроенный под имя плагина |
-| `ctx.notify_admins(text)` | быстро отправить сообщение всем админам |
+<details>
+  <summary><strong>🧰 Что доступно в <code>ctx</code> (<code>PluginContext</code>)</strong></summary>
 
-По умолчанию Telegram-команды плагина доступны только админам
-(`admin_only=True`); чтобы сделать команду публичной:
-`@ctx.telegram.command("start", admin_only=False)`.
+  | Поле | Описание |
+  |---|---|
+  | `ctx.account` | объект `FunPayAPI.Account` — `send_message`, `get_order`, `save_lot`, `get_sells`... |
+  | `ctx.events` | декораторы подписки на события FunPay (см. выше) |
+  | `ctx.telegram` | `@ctx.telegram.command("имя")`, `@ctx.telegram.callback("префикс")`, `.reply()`, `.send()`, `.bot` (сырой `telebot.TeleBot`) |
+  | `ctx.storage` | JSON-хранилище плагина: `.get(key, default)`, `.set(key, value)`, `.update({...})`, `.all()` |
+  | `ctx.logger` | `logging.Logger`, уже настроенный под имя плагина |
+  | `ctx.notify_admins(text)` | отправить сообщение всем админам разом |
 
-### Пример: минимальный плагин
+  По умолчанию Telegram-команды плагина доступны только админам. Чтобы сделать команду
+  публичной: `@ctx.telegram.command("start", admin_only=False)`.
 
-```python
-from fphelper import PluginInfo
+</details>
 
-INFO = PluginInfo(name="Мой плагин", version="0.1.0", description="...", author="я")
+<details>
+  <summary><strong>🔧 Пример плагина</strong></summary>
 
-def setup(ctx):
-    @ctx.events.new_order
-    def on_order(event):
-        ctx.notify_admins(f"Новый заказ: {event.order.description}")
-```
+  ```python
+  from fphelper import PluginInfo
 
-Плагин подхватывается автоматически при следующем запуске бота — просто
-положите папку в `plugins/`.
+  INFO = PluginInfo(
+      name="Мой плагин",
+      version="0.1.0",
+      description="Что делает плагин",
+      author="я",
+  )
 
-## Структура проекта
+  def setup(ctx):
+      @ctx.events.new_order
+      def on_order(event):
+          ctx.notify_admins(f"🛒 Новый заказ: {event.order.description}")
+
+      @ctx.telegram.command("stats")
+      def cmd_stats(message):
+          total = ctx.storage.get("orders_count", 0)
+          ctx.telegram.reply(message, f"Заказов обработано: {total}")
+  ```
+
+  Готовый рабочий пример смотрите в [`plugins/example_autoreply/`](plugins/example_autoreply/__init__.py).
+  Плагин подхватывается автоматически при следующем запуске — просто положите папку в `plugins/`.
+
+</details>
+
+## 📁 Структура проекта
 
 ```
 FPHelper/
   fphelper/            # ядро движка
     config.py          # конфиг + мастер первого запуска
     events.py           # шина событий FunPay
-    context.py           # PluginContext и всё, что видит плагин
-    telegram_admin.py     # Telegram-бот, мультиадмины, команды ядра
-    funpay_client.py       # подключение к FunPay и цикл Runner'а
-    plugin_manager.py       # загрузка плагинов из plugins/
-  plugins/               # сюда кладутся плагины
-  storage/                # JSON-хранилища плагинов (создаётся сама)
-  logs/                    # логи (создаётся сама)
-  main.py                   # точка входа
+    context.py            # PluginContext и всё, что видит плагин
+    telegram_admin.py       # Telegram-бот, мультиадмины, команды ядра
+    funpay_client.py         # подключение к FunPay и цикл Runner'а
+    plugin_manager.py         # загрузка плагинов из plugins/
+  plugins/                    # сюда кладутся плагины
+  storage/                     # JSON-хранилища плагинов (создаётся сама)
+  logs/                         # логи (создаётся сама)
+  main.py                        # точка входа
 ```
+
+## ⚠️ О лицензии
+
+Движок построен на официальной библиотеке [`FunPayAPI`](https://pypi.org/project/FunPayAPI/)
+(автор Woopertail, лицензия **GPLv3**) и [`pyTelegramBotAPI`](https://pypi.org/project/pyTelegramBotAPI/)
+(MIT). Весь остальной код в репозитории — оригинальный.
+
+Если планируете распространять/продавать **сам движок** в закрытом,
+обфусцированном виде — сверьтесь с юристом на совместимость с GPLv3. Продажа
+**отдельных плагинов**, устанавливаемых поверх уже работающего движка, —
+более безопасная с этой точки зрения модель, и именно для неё спроектирован
+плагин-API выше.
