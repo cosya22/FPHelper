@@ -67,9 +67,12 @@ Telegram, доступ есть только у вас.
 ## 🧩 Плагины
 
 Основной функционал бота уже встроен и работает сразу. Плагины — это
-дополнительные модули поверх него: например, [`plugins/telegram_stars`](plugins/telegram_stars)
-— авто-выдача Telegram Stars через Fragment с автоматическим пересчётом цены
-([гайд по установке](https://telegra.ph/Telegram-Stars-dlya-FPHelper-08-14)).
+дополнительные модули поверх него:
+
+- [`plugins/telegram_stars`](plugins/telegram_stars) — авто-выдача Telegram Stars через Fragment
+  с автоматическим пересчётом цены ([гайд по установке](https://telegra.ph/Telegram-Stars-dlya-FPHelper-08-14))
+- [`plugins/telegram_premium`](plugins/telegram_premium) — авто-выдача Telegram Premium (3/6/12 мес)
+  через Fragment, тот же автопилот по цене и лотам ([гайд по установке](https://telegra.ph/Telegram-Premium-dlya-FPHelper-08-14))
 
 Устанавливаются присылкой `.zip`-архива боту в Telegram (кнопка «➕ Установить
 плагин»), либо вручную — в папку `plugins/`.
