@@ -73,6 +73,9 @@ Telegram, доступ есть только у вас.
   с автоматическим пересчётом цены ([гайд по установке](https://telegra.ph/Telegram-Stars-dlya-FPHelper-08-14))
 - [`plugins/telegram_premium`](plugins/telegram_premium) — авто-выдача Telegram Premium (3/6/12 мес)
   через Fragment, тот же автопилот по цене и лотам ([гайд по установке](https://telegra.ph/Telegram-Premium-dlya-FPHelper-08-14))
+- [`plugins/auto_steam_rental`](plugins/auto_steam_rental) — авто-аренда Steam-аккаунтов: выдача,
+  коды Steam Guard, попытка авто-смены пароля по истечении аренды (⚠️ нарушает Subscriber Agreement
+  Steam — риск бана аккаунта, это осознанный выбор владельца; подробности в README плагина)
 
 Устанавливаются присылкой `.zip`-архива боту в Telegram (кнопка «➕ Установить
 плагин»), либо вручную — в папку `plugins/`.

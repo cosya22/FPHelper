@@ -2,3 +2,6 @@ FunPayAPI
 pyTelegramBotAPI
 pyfragment
 cryptography
+pysteamauth
+rsa
+urllib3==1.26.15
