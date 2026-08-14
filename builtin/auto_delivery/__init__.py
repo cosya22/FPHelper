@@ -56,7 +56,7 @@ def setup(ctx):
                 raise RuntimeError("не найден чат с покупателем")
             chat_id = chat.id
         except Exception as e:
-            ctx.notify_admins(f"❌ Заказ {order.id}: не удалось открыть чат с покупателем — {e}")
+            ctx.notify_owner(f"❌ Заказ {order.id}: не удалось открыть чат с покупателем — {e}")
             return
 
         if rule["type"] == "text":
@@ -64,7 +64,7 @@ def setup(ctx):
         else:
             items = rule.get("items", [])
             if not items:
-                ctx.notify_admins(
+                ctx.notify_owner(
                     f"⚠️ Заказ {order.id}: сработало правило «{keyword}», но склад пуст — выдайте вручную."
                 )
                 return
@@ -76,10 +76,10 @@ def setup(ctx):
         try:
             ctx.account.send_message(chat_id, content)
         except Exception as e:
-            ctx.notify_admins(f"❌ Заказ {order.id}: не удалось отправить выдачу — {e}")
+            ctx.notify_owner(f"❌ Заказ {order.id}: не удалось отправить выдачу — {e}")
             return
 
-        ctx.notify_admins(f"✅ Заказ {order.id}: выдано по правилу «{keyword}» ({order.buyer_username})")
+        ctx.notify_owner(f"✅ Заказ {order.id}: выдано по правилу «{keyword}» ({order.buyer_username})")
 
     @ctx.telegram.command("delivery_list")
     def cmd_list(message):

@@ -27,7 +27,7 @@ def setup(ctx):
     @ctx.events.new_order
     def on_order(event):
         order = event.order
-        ctx.notify_admins(
+        ctx.notify_owner(
             f"🛒 Новый заказ «{order.description}» на {order.price} — от {order.buyer_username}"
         )
 

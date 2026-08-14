@@ -65,10 +65,10 @@ def setup(ctx):
                 result = ctx.account.withdraw(currency, wallet, amount, state["address"])
                 state["last_withdrawal_at"] = now
                 save_state(state)
-                ctx.notify_admins(f"💸 Авто-вывод выполнен: {amount} {state['currency']} → {state['wallet']}")
+                ctx.notify_owner(f"💸 Авто-вывод выполнен: {amount} {state['currency']} → {state['wallet']}")
                 ctx.logger.info(f"Авто-вывод выполнен: {result}")
             except Exception as e:
-                ctx.notify_admins(f"❌ Авто-вывод не удался: {e}")
+                ctx.notify_owner(f"❌ Авто-вывод не удался: {e}")
                 ctx.logger.exception("Ошибка авто-вывода")
                 state["last_withdrawal_at"] = now  # не долбим сайт каждые 5 минут после ошибки
                 save_state(state)

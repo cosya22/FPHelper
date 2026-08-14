@@ -4,7 +4,7 @@ from typing import Callable
 from telebot import TeleBot
 from telebot.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
-from .config import Config, save_config
+from .config import Config
 
 logger = logging.getLogger("fphelper.telegram")
 
@@ -14,9 +14,8 @@ MENU_SECTION_PREFIX = "menu:section:"
 
 class TelegramAdmin:
     """
-    Обёртка над Telegram-ботом (pyTelegramBotAPI): доступ к командам только у
-    администраторов из белого списка config.telegram.admins. Список админов можно
-    расширять прямо из чата — /whoami не требует прав, остальные команды требуют.
+    Обёртка над Telegram-ботом (pyTelegramBotAPI): доступ есть только у владельца
+    бота (его Telegram ID задаётся один раз при первом запуске, в config.json).
 
     Кроме команд, есть кнопочное меню: плагины регистрируют свои пункты через
     register_menu_button()/PluginTelegram.menu_item(), а параметризованные действия
@@ -34,49 +33,33 @@ class TelegramAdmin:
         self._register_core_commands()
         self._register_pending_catchall()
 
-    def is_admin(self, user_id: int) -> bool:
-        return user_id in self._config.telegram.admins
-
-    def add_admin(self, user_id: int) -> bool:
-        if user_id in self._config.telegram.admins:
-            return False
-        self._config.telegram.admins.append(user_id)
-        save_config(self._config, self._config_path)
-        return True
-
-    def remove_admin(self, user_id: int) -> bool:
-        if user_id not in self._config.telegram.admins:
-            return False
-        self._config.telegram.admins.remove(user_id)
-        save_config(self._config, self._config_path)
-        return True
+    def is_owner(self, user_id: int) -> bool:
+        return user_id == self._config.telegram.owner_id
 
     def set_plugins(self, plugins) -> None:
         self._plugins = plugins
 
-    def notify_admins(self, text: str) -> None:
-        for admin_id in list(self._config.telegram.admins):
-            try:
-                self.bot.send_message(admin_id, text)
-            except Exception:
-                logger.exception(f"Не удалось отправить уведомление админу {admin_id}")
+    def notify_owner(self, text: str) -> None:
+        try:
+            self.bot.send_message(self._config.telegram.owner_id, text)
+        except Exception:
+            logger.exception("Не удалось отправить уведомление владельцу бота")
 
-    def register_command(self, names, handler, admin_only: bool = True) -> None:
+    def register_command(self, names, handler, owner_only: bool = True) -> None:
         def wrapper(message):
-            if admin_only and not self.is_admin(message.from_user.id):
-                self.bot.reply_to(message, "⛔ У вас нет доступа к этой команде.")
+            if owner_only and not self.is_owner(message.from_user.id):
                 return
             handler(message)
 
         self.bot.message_handler(commands=list(names))(wrapper)
 
-    def register_callback(self, prefix: str, handler, admin_only: bool = True) -> None:
+    def register_callback(self, prefix: str, handler, owner_only: bool = True) -> None:
         def matches(call):
             return call.data == prefix or call.data.startswith(f"{prefix}:")
 
         def wrapper(call):
-            if admin_only and not self.is_admin(call.from_user.id):
-                self.bot.answer_callback_query(call.id, "⛔ Нет доступа")
+            if owner_only and not self.is_owner(call.from_user.id):
+                self.bot.answer_callback_query(call.id)
                 return
             try:
                 self.bot.answer_callback_query(call.id)
@@ -113,6 +96,8 @@ class TelegramAdmin:
 
         @self.bot.message_handler(commands=["cancel"])
         def cmd_cancel(message):
+            if not self.is_owner(message.from_user.id):
+                return
             if self._pending.pop(message.from_user.id, None) is not None:
                 self.bot.reply_to(message, "Отменено.")
             else:
@@ -140,62 +125,17 @@ class TelegramAdmin:
             self.bot.send_message(chat_id, text, reply_markup=kb)
 
     def _register_core_commands(self) -> None:
-        # --- регистрация в меню собственных разделов ядра ---
-        self.register_menu_button("👥 Админы", "🆔 Мой ID", "core:whoami")
-        self.register_menu_button("👥 Админы", "📋 Список", "core:admins")
-        self.register_menu_button("👥 Админы", "➕ Добавить", "core:addadmin_ask")
-        self.register_menu_button("👥 Админы", "➖ Удалить", "core:deladmin_ask")
         self.register_menu_button("🧩 Модули", "📋 Список модулей и плагинов", "core:plugins")
-
-        @self.bot.message_handler(commands=["whoami"])
-        def cmd_whoami(message):
-            self.bot.reply_to(message, f"Ваш Telegram ID: <code>{message.from_user.id}</code>")
 
         @self.bot.message_handler(commands=["start", "help", "menu"])
         def cmd_start(message):
-            if not self.is_admin(message.from_user.id):
-                self.bot.reply_to(
-                    message,
-                    "⛔ У вас нет доступа к этому боту.\n\n"
-                    "Отправьте /whoami, чтобы узнать свой Telegram ID, и попросите "
-                    "действующего админа добавить вас командой /addadmin.",
-                )
+            if not self.is_owner(message.from_user.id):
                 return
             self._send_or_edit_main_menu(message.chat.id)
 
-        @self.bot.message_handler(commands=["admins"])
-        def cmd_admins(message):
-            if not self.is_admin(message.from_user.id):
-                self.bot.reply_to(message, "⛔ Нет доступа.")
-                return
-            self.bot.reply_to(message, self._admins_text())
-
-        @self.bot.message_handler(commands=["addadmin"])
-        def cmd_addadmin(message):
-            if not self.is_admin(message.from_user.id):
-                self.bot.reply_to(message, "⛔ Нет доступа.")
-                return
-            parts = message.text.split(maxsplit=1)
-            if len(parts) < 2 or not parts[1].strip().isdigit():
-                self.bot.reply_to(message, "Использование: /addadmin &lt;telegram_id&gt;")
-                return
-            self._do_add_admin(message, parts[1].strip())
-
-        @self.bot.message_handler(commands=["deladmin"])
-        def cmd_deladmin(message):
-            if not self.is_admin(message.from_user.id):
-                self.bot.reply_to(message, "⛔ Нет доступа.")
-                return
-            parts = message.text.split(maxsplit=1)
-            if len(parts) < 2 or not parts[1].strip().isdigit():
-                self.bot.reply_to(message, "Использование: /deladmin &lt;telegram_id&gt;")
-                return
-            self._do_del_admin(message, parts[1].strip())
-
         @self.bot.message_handler(commands=["plugins"])
         def cmd_plugins(message):
-            if not self.is_admin(message.from_user.id):
-                self.bot.reply_to(message, "⛔ Нет доступа.")
+            if not self.is_owner(message.from_user.id):
                 return
             self.bot.reply_to(message, self._plugins_text())
 
@@ -216,42 +156,10 @@ class TelegramAdmin:
                 reply_markup=self._section_kb(section),
             )
 
-        # --- кнопки раздела "Админы"/"Плагины" ---
-        @self.bot.callback_query_handler(func=lambda c: c.data == "core:whoami")
-        def cbq_whoami(call: CallbackQuery):
-            self.bot.answer_callback_query(call.id, f"Ваш ID: {call.from_user.id}", show_alert=True)
-
-        @self.bot.callback_query_handler(func=lambda c: c.data == "core:admins")
-        def cbq_admins(call: CallbackQuery):
-            self.bot.answer_callback_query(call.id)
-            self.bot.send_message(call.message.chat.id, self._admins_text())
-
         @self.bot.callback_query_handler(func=lambda c: c.data == "core:plugins")
         def cbq_plugins(call: CallbackQuery):
             self.bot.answer_callback_query(call.id)
             self.bot.send_message(call.message.chat.id, self._plugins_text())
-
-        @self.bot.callback_query_handler(func=lambda c: c.data == "core:addadmin_ask")
-        def cbq_addadmin_ask(call: CallbackQuery):
-            self.bot.answer_callback_query(call.id)
-            self.ask(
-                call.message.chat.id, call.from_user.id,
-                "Пришлите Telegram ID нового админа.",
-                lambda message: self._do_add_admin(message, message.text.strip()),
-            )
-
-        @self.bot.callback_query_handler(func=lambda c: c.data == "core:deladmin_ask")
-        def cbq_deladmin_ask(call: CallbackQuery):
-            self.bot.answer_callback_query(call.id)
-            self.ask(
-                call.message.chat.id, call.from_user.id,
-                "Пришлите Telegram ID админа, которого нужно удалить.",
-                lambda message: self._do_del_admin(message, message.text.strip()),
-            )
-
-    def _admins_text(self) -> str:
-        admins = self._config.telegram.admins
-        return "<b>Админы:</b>\n" + "\n".join(f"• <code>{a}</code>" for a in admins)
 
     def _plugins_text(self) -> str:
         if not self._plugins:
@@ -270,29 +178,6 @@ class TelegramAdmin:
             for p in custom:
                 lines.append(f"• <b>{p.info.name}</b> v{p.info.version} — {p.info.description}")
         return "\n".join(lines)
-
-    def _do_add_admin(self, message: Message, raw_id: str) -> None:
-        if not raw_id.isdigit():
-            self.bot.reply_to(message, "ID должен быть числом.")
-            return
-        new_id = int(raw_id)
-        if self.add_admin(new_id):
-            self.bot.reply_to(message, f"✅ Админ <code>{new_id}</code> добавлен.")
-        else:
-            self.bot.reply_to(message, "Этот пользователь уже админ.")
-
-    def _do_del_admin(self, message: Message, raw_id: str) -> None:
-        if not raw_id.isdigit():
-            self.bot.reply_to(message, "ID должен быть числом.")
-            return
-        target_id = int(raw_id)
-        if target_id == message.from_user.id:
-            self.bot.reply_to(message, "❌ Нельзя удалить самого себя.")
-            return
-        if self.remove_admin(target_id):
-            self.bot.reply_to(message, f"✅ Админ <code>{target_id}</code> удалён.")
-        else:
-            self.bot.reply_to(message, "Этот пользователь не найден среди админов.")
 
     def run(self) -> None:
         logger.info("Telegram-бот запущен (polling)")

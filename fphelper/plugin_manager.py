@@ -54,7 +54,7 @@ def _load_from_dir(account: Account, bus: EventBus, admin: TelegramAdmin,
                 telegram=PluginTelegram(admin),
                 storage=PluginStorage(os.path.join(STORAGE_DIR, storage_subdir, f"{name}.json")),
                 logger=logging.getLogger(f"fphelper.{storage_subdir}.{name}"),
-                notify_admins=admin.notify_admins,
+                notify_owner=admin.notify_owner,
             )
             setup_fn(ctx)
             loaded.append(LoadedPlugin(dir_name=name, info=info, builtin=builtin))

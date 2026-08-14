@@ -20,7 +20,7 @@ INFO = PluginInfo(
 def setup(ctx):
     @ctx.events.new_order
     def on_order(event):
-        ctx.notify_admins(f"🛒 Новый заказ: {event.order.description}")
+        ctx.notify_owner(f"🛒 Новый заказ: {event.order.description}")
 
     @ctx.telegram.command("stats")
     def cmd_stats(message):
@@ -50,10 +50,10 @@ def setup(ctx):
 | `ctx.telegram` | `@ctx.telegram.command("имя")`, `@ctx.telegram.callback("префикс")`, `@ctx.telegram.menu_item(...)`, `.ask(...)`, `.reply()`, `.send()`, `.bot` (сырой `telebot.TeleBot`) |
 | `ctx.storage` | JSON-хранилище плагина: `.get(key, default)`, `.set(key, value)`, `.update({...})`, `.all()` |
 | `ctx.logger` | `logging.Logger`, уже настроенный под имя плагина |
-| `ctx.notify_admins(text)` | отправить сообщение всем админам разом |
+| `ctx.notify_owner(text)` | отправить сообщение владельцу бота |
 
-По умолчанию Telegram-команды плагина доступны только админам. Чтобы сделать
-команду публичной: `@ctx.telegram.command("start", admin_only=False)`.
+По умолчанию Telegram-команды плагина доступны только владельцу бота. Чтобы
+сделать команду публичной: `@ctx.telegram.command("start", owner_only=False)`.
 
 ## Кнопки в главном меню и запрос текста (`ask`)
 
@@ -98,7 +98,7 @@ FPHelper/
     config.py          # конфиг + мастер первого запуска
     events.py           # шина событий FunPay
     context.py            # PluginContext и всё, что видит плагин/модуль
-    telegram_admin.py       # Telegram-бот, меню, мультиадмины, команды ядра
+    telegram_admin.py       # Telegram-бот, меню, доступ владельца, команды ядра
     funpay_client.py         # подключение к FunPay и цикл Runner'а
     plugin_manager.py         # загрузка builtin/ и plugins/
   builtin/                     # встроенные модули бота (всегда активны)

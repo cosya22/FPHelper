@@ -45,36 +45,36 @@ class PluginEvents:
 
 
 class PluginTelegram:
-    """Регистрация Telegram-команд/колбэков плагина в общем боте-админке."""
+    """Регистрация Telegram-команд/колбэков плагина в общем Telegram-боте."""
 
     def __init__(self, admin):
         self._admin = admin
 
-    def command(self, *names: str, admin_only: bool = True):
+    def command(self, *names: str, owner_only: bool = True):
         def deco(func):
-            self._admin.register_command(names, func, admin_only=admin_only)
+            self._admin.register_command(names, func, owner_only=owner_only)
             return func
         return deco
 
-    def callback(self, prefix: str, admin_only: bool = True):
+    def callback(self, prefix: str, owner_only: bool = True):
         def deco(func):
-            self._admin.register_callback(prefix, func, admin_only=admin_only)
+            self._admin.register_callback(prefix, func, owner_only=owner_only)
             return func
         return deco
 
-    def menu_item(self, section: str, label: str, callback_data: str, admin_only: bool = True):
+    def menu_item(self, section: str, label: str, callback_data: str, owner_only: bool = True):
         """
         Одновременно регистрирует обработчик колбэка и кнопку с ним в разделе
         главного Telegram-меню (раздел создаётся сам при первой кнопке в нём).
         """
         def deco(func):
-            self._admin.register_callback(callback_data, func, admin_only=admin_only)
+            self._admin.register_callback(callback_data, func, owner_only=owner_only)
             self._admin.register_menu_button(section, label, callback_data)
             return func
         return deco
 
     def ask(self, chat_id: int | str, user_id: int, prompt: str, on_answer):
-        """Спрашивает текстом и один раз вызывает on_answer(message), когда админ ответит."""
+        """Спрашивает текстом и один раз вызывает on_answer(message), когда владелец ответит."""
         self._admin.ask(chat_id, user_id, prompt, on_answer)
 
     def reply(self, message, text: str, **kwargs):
@@ -83,8 +83,8 @@ class PluginTelegram:
     def send(self, chat_id: int, text: str, **kwargs):
         return self._admin.bot.send_message(chat_id, text, **kwargs)
 
-    def is_admin(self, user_id: int) -> bool:
-        return self._admin.is_admin(user_id)
+    def is_owner(self, user_id: int) -> bool:
+        return self._admin.is_owner(user_id)
 
     @property
     def bot(self):
@@ -96,7 +96,7 @@ class PluginContext:
     """
     Всё, что получает плагин при загрузке. account — для действий на FunPay,
     events/telegram — для подписки на события и команды, storage — приватное
-    JSON-хранилище плагина, notify_admins — быстрая рассылка всем админам.
+    JSON-хранилище плагина, notify_owner — сообщение владельцу бота.
     """
 
     account: Account
@@ -104,4 +104,4 @@ class PluginContext:
     telegram: PluginTelegram
     storage: PluginStorage
     logger: Logger
-    notify_admins: Callable[[str], None]
+    notify_owner: Callable[[str], None]

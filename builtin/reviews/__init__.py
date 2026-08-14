@@ -54,7 +54,7 @@ def setup(ctx):
 
                 seen.add(order.id)
                 changed = True
-                ctx.notify_admins(
+                ctx.notify_owner(
                     f"🌟 Новый отзыв ({order.review.stars}/5) по заказу {order.id}\n"
                     f"От {order.buyer_username}: {order.review.text}\n\n"
                     f"Ответить: /review_reply {order.id} текст"

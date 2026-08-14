@@ -55,7 +55,7 @@ def main() -> None:
     tg_thread = threading.Thread(target=admin.run, daemon=True)
     tg_thread.start()
 
-    admin.notify_admins(
+    admin.notify_owner(
         f"✅ FPHelper запущен.\nАккаунт: {fp_client.account.username}\n"
         f"Встроенных модулей: {len(builtin)}\nПлагинов: {len(plugins)}"
     )

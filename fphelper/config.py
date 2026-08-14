@@ -1,7 +1,7 @@
 import getpass
 import json
 import os
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 
 CONFIG_PATH = "config.json"
 
@@ -17,7 +17,7 @@ class FunPayConfig:
 @dataclass
 class TelegramConfig:
     token: str
-    admins: list[int] = field(default_factory=list)
+    owner_id: int = 0
 
 
 @dataclass
@@ -56,10 +56,10 @@ def run_setup_wizard(path: str = CONFIG_PATH) -> Config:
     print("\nТокен Telegram-бота получите у @BotFather командой /newbot.")
     token = getpass.getpass("Токен Telegram-бота (ввод скрыт): ").strip()
 
-    print("\nВаш Telegram ID можно узнать у @userinfobot, либо запустив бота и отправив ему /whoami.")
+    print("\nВаш Telegram ID можно узнать у @userinfobot.")
     while True:
-        admin_raw = input("Ваш Telegram ID (первый админ): ").strip()
-        if admin_raw.isdigit():
+        owner_raw = input("Ваш Telegram ID: ").strip()
+        if owner_raw.isdigit():
             break
         print("Нужно ввести число. Попробуйте снова.")
 
@@ -68,7 +68,7 @@ def run_setup_wizard(path: str = CONFIG_PATH) -> Config:
 
     config = Config(
         funpay=FunPayConfig(golden_key=golden_key, proxy=proxy),
-        telegram=TelegramConfig(token=token, admins=[int(admin_raw)]),
+        telegram=TelegramConfig(token=token, owner_id=int(owner_raw)),
     )
     save_config(config, path)
     print(f"\nКонфиг сохранён в {path}. Его не нужно никому передавать — там ваши секреты.\n")

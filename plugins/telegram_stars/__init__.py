@@ -180,7 +180,7 @@ def setup(ctx):
                     ctx.account.send_message(job["chat_id"], f"✅ Начислено {job['amount']} Stars. Спасибо за покупку!")
                 except Exception:
                     pass
-                ctx.notify_admins(
+                ctx.notify_owner(
                     f"✅ Заказ {job['order_id']}: выдано {job['amount']} Stars на @{job['telegram_username']}"
                 )
             except UserNotFoundError:
@@ -198,7 +198,7 @@ def setup(ctx):
                 if job["attempts"] >= MAX_ATTEMPTS:
                     job["status"] = STATUS_FAILED
                     job["error"] = str(e)
-                    ctx.notify_admins(f"❌ Заказ {job['order_id']}: не удалось выдать Stars — {e}")
+                    ctx.notify_owner(f"❌ Заказ {job['order_id']}: не удалось выдать Stars — {e}")
                 save_jobs(jobs)
             except Exception:
                 ctx.logger.exception(f"Неожиданная ошибка при выдаче заказа {job['order_id']}")
@@ -244,7 +244,7 @@ def setup(ctx):
                 price_per_star_rub = price_per_star_ton * ton_rub * (1 + s["markup_percent"] / 100)
             except Exception as e:
                 ctx.logger.exception("Не удалось получить котировку цены/баланса")
-                ctx.notify_admins(f"⚠️ Telegram Stars: не удалось обновить цену — {e}")
+                ctx.notify_owner(f"⚠️ Telegram Stars: не удалось обновить цену — {e}")
                 continue
 
             deactivated = get_deactivated_lots()
@@ -259,7 +259,7 @@ def setup(ctx):
                                 set_lot_active(lot_id, False)
                                 deactivated.add(lot_id)
                                 changed_deactivated = True
-                                ctx.notify_admins(
+                                ctx.notify_owner(
                                     f"⏸ Лот {lot_id} снят с продажи: баланс кошелька "
                                     f"({balance_ton:.2f} TON) ниже порога ({min_balance} TON)."
                                 )
@@ -268,12 +268,12 @@ def setup(ctx):
                             set_lot_active(lot_id, True)
                             deactivated.discard(lot_id)
                             changed_deactivated = True
-                            ctx.notify_admins(f"▶️ Лот {lot_id} снова в продаже: баланс восстановлен.")
+                            ctx.notify_owner(f"▶️ Лот {lot_id} снова в продаже: баланс восстановлен.")
 
                     apply_lot_price(lot_id, price_per_star_rub)
                 except Exception as e:
                     ctx.logger.exception(f"Не удалось обновить лот {lot_id}")
-                    ctx.notify_admins(f"⚠️ Лот {lot_id}: не удалось обновить — {e}")
+                    ctx.notify_owner(f"⚠️ Лот {lot_id}: не удалось обновить — {e}")
 
             if changed_deactivated:
                 save_deactivated_lots(deactivated)
