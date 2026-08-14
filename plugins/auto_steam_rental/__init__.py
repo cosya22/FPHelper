@@ -29,7 +29,7 @@ from . import crypto, steam_guard, steam_password
 
 INFO = PluginInfo(
     name="Auto Steam Rental",
-    version="1.2.0",
+    version="1.3.0",
     description="Авто-аренда Steam-аккаунтов: выдача, коды Steam Guard, попытка авто-смены пароля по истечении.",
     author="you",
 )
@@ -121,13 +121,45 @@ def setup(ctx):
             return
 
         category = getattr(order, "subcategory_name", "") or ""
-        login, account = find_available_account(category)
 
         try:
             chat = ctx.account.get_chat_by_name(order.buyer_username, make_request=True)
             chat_id = chat.id if chat else order.buyer_username
         except Exception:
             chat_id = order.buyer_username
+
+        duration_seconds = (order.amount or 1) * s["duration_seconds_per_unit"]
+
+        # продление: у покупателя уже есть активная/ожидающая аренда в этой же категории —
+        # добавляем время к ней, а не ищем новый аккаунт
+        jobs = get_jobs()
+        existing_job = next(
+            (j for j in jobs.values()
+             if j["buyer_username"] == order.buyer_username
+             and j["status"] in (STATUS_WAITING_START, STATUS_ACTIVE)
+             and j.get("category", "") == category),
+            None,
+        )
+        if existing_job is not None:
+            job = jobs[existing_job["order_id"]]
+            if job["status"] == STATUS_ACTIVE and job["rental_ends_at"]:
+                job["rental_ends_at"] += duration_seconds
+                left = int((job["rental_ends_at"] - time.time()) // 3600)
+                end_text = f"Осталось теперь: {left} ч."
+            else:
+                job["duration_seconds"] += duration_seconds
+                end_text = "Прибавится к длительности, когда аренда начнётся (после первого !code)."
+            save_jobs(jobs)
+            try:
+                ctx.account.send_message(
+                    chat_id,
+                    f"➕ Аренда продлена на {int(duration_seconds // 3600)} ч.! {end_text}",
+                )
+            except Exception:
+                ctx.logger.exception(f"Не удалось уведомить о продлении по заказу {order.id}")
+            return
+
+        login, account = find_available_account(category)
 
         if account is None:
             try:
@@ -140,14 +172,11 @@ def setup(ctx):
             )
             return
 
-        duration_seconds = (order.amount or 1) * s["duration_seconds_per_unit"]
-
         accounts = get_accounts()
         accounts[login]["status"] = ACC_RENTED
         accounts[login]["current_order_id"] = order.id
         save_accounts(accounts)
 
-        jobs = get_jobs()
         jobs[order.id] = {
             "order_id": order.id,
             "buyer_username": order.buyer_username,
@@ -239,7 +268,7 @@ def setup(ctx):
             try:
                 ctx.account.send_message(
                     message.chat_id,
-                    "Чтобы продлить аренду, оформите новый заказ на этот же лот — я добавлю время к текущей аренде.",
+                    "Чтобы продлить аренду, оформите новый заказ на любой лот этой же игры — я сам добавлю время к текущей аренде.",
                 )
             except Exception:
                 pass
