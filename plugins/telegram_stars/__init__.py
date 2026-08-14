@@ -303,14 +303,21 @@ def setup(ctx):
                     continue
                 try:
                     order = ctx.account.get_order(job["order_id"])
-                    if order.status == OrderStatuses.PAID:
+                except Exception:
+                    # не получилось проверить статус — попробуем ещё раз на следующем цикле,
+                    # не помечаем reminded, чтобы не потерять напоминание из-за сетевого сбоя
+                    ctx.logger.exception(f"Не удалось проверить заказ {job['order_id']} для напоминания")
+                    continue
+
+                if order.status == OrderStatuses.PAID:
+                    try:
                         ctx.account.send_message(
                             job["chat_id"],
                             "👋 Напоминаем: звёзды уже начислены — если всё пришло, не забудьте "
                             "подтвердить получение заказа на FunPay, это важно для продавца 🙏",
                         )
-                except Exception:
-                    ctx.logger.exception(f"Не удалось напомнить по заказу {job['order_id']}")
+                    except Exception:
+                        ctx.logger.exception(f"Не удалось отправить напоминание по заказу {job['order_id']}")
                 job["reminded"] = True
                 changed = True
 
