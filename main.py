@@ -11,6 +11,27 @@ from fphelper.funpay_client import FunPayClient
 from fphelper.plugin_manager import load_builtin, load_plugins
 from fphelper.telegram_admin import TelegramAdmin
 
+
+def patch_request_error_logging() -> None:
+    """
+    FunPayAPI.RequestFailedError хранит тело ответа FunPay (response.text), но не
+    показывает его в str(e) — а именно str(e) попадает в наш DEBUG-лог traceback'а.
+    Добавляем тело ответа, чтобы при 400/403 и т.п. было видно, что именно ответил
+    FunPay, а не только код статуса.
+    """
+    from FunPayAPI.common.exceptions import RequestFailedError
+
+    original_str = RequestFailedError.__str__
+
+    def patched_str(self):
+        try:
+            body = self.response.text[:500]
+        except Exception:
+            body = "<не удалось прочитать тело ответа>"
+        return f"{original_str(self)}\nТело ответа FunPay: {body}"
+
+    RequestFailedError.__str__ = patched_str
+
 _LEVEL_COLORS = {
     logging.DEBUG: Fore.BLACK + Style.BRIGHT,
     logging.INFO: Fore.CYAN,
@@ -89,6 +110,7 @@ def setup_logging() -> None:
     # "произошла ошибка при получении событий") — включаем DEBUG именно для неё,
     # чтобы при сбоях было видно настоящую причину, а не только заглушку.
     logging.getLogger("FunPayAPI").setLevel(logging.DEBUG)
+    patch_request_error_logging()
 
 
 def main() -> None:
