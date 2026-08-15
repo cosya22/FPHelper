@@ -41,7 +41,10 @@ def setup(ctx):
     @ctx.events.new_message
     def on_message_notify(event):
         message = event.message
-        if message.author_id == ctx.account.id or not message.text:
+        # author_id == 0 — это системные строки FunPay в чате ("оплатил заказ",
+        # "вернул деньги", "написал отзыв" и т.п.), а не реальное сообщение
+        # покупателя — их и так дублируют уведомления "Новый заказ"/"Отзыв".
+        if message.author_id in (ctx.account.id, 0) or not message.text:
             return
         if blacklist.is_restricted(message.author, "no_message_notify"):
             return

@@ -47,7 +47,8 @@ def setup(ctx):
     @ctx.events.new_message
     def on_first_message(event):
         message = event.message
-        if message.author_id == ctx.account.id or not message.text:
+        # author_id == 0 — системные строки FunPay ("оплатил заказ" и т.п.), не сообщение покупателя.
+        if message.author_id in (ctx.account.id, 0) or not message.text:
             return
         rule = get_settings()["welcome"]
         if not rule["enabled"] or not rule["text"]:

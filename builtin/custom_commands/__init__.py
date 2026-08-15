@@ -32,7 +32,8 @@ def setup(ctx):
     @ctx.events.new_message
     def on_message(event):
         message = event.message
-        if message.author_id == ctx.account.id or not message.text:
+        # author_id == 0 — системные строки FunPay ("оплатил заказ" и т.п.), не команда покупателя.
+        if message.author_id in (ctx.account.id, 0) or not message.text:
             return
         text = message.text.strip()
         if not text.startswith("!"):
