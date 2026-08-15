@@ -10,7 +10,7 @@ from fphelper import PluginInfo
 INFO = PluginInfo(
     name="Lots",
     version="1.0.0",
-    description="/lot <id> — просмотр, /lot_toggle и /lot_price — управление лотом.",
+    description="/lot [id] — просмотр, /lot_toggle и /lot_price — управление лотом.",
     author="you",
 )
 

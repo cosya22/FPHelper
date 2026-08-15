@@ -1,3 +1,4 @@
+import html
 import logging
 from typing import Callable
 
@@ -173,19 +174,26 @@ class TelegramAdmin:
     def _plugins_text(self) -> str:
         if not self._plugins:
             return "Нет загруженных модулей."
+
+        def line(p) -> str:
+            # экранируем — описание может прийти из стороннего плагина и содержать
+            # символы, которые Telegram примет за (нерабочую) HTML-разметку
+            name = html.escape(p.info.name)
+            version = html.escape(str(p.info.version))
+            description = html.escape(p.info.description)
+            return f"• <b>{name}</b> v{version} — {description}"
+
         builtin = [p for p in self._plugins if getattr(p, "builtin", False)]
         custom = [p for p in self._plugins if not getattr(p, "builtin", False)]
         lines = []
         if builtin:
             lines.append("<b>Встроенные модули:</b>\n")
-            for p in builtin:
-                lines.append(f"• <b>{p.info.name}</b> v{p.info.version} — {p.info.description}")
+            lines.extend(line(p) for p in builtin)
         if custom:
             if lines:
                 lines.append("")
             lines.append("<b>Плагины:</b>\n")
-            for p in custom:
-                lines.append(f"• <b>{p.info.name}</b> v{p.info.version} — {p.info.description}")
+            lines.extend(line(p) for p in custom)
         return "\n".join(lines)
 
     def run(self) -> None:

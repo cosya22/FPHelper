@@ -5,7 +5,7 @@ from fphelper import PluginInfo
 INFO = PluginInfo(
     name="Fast Replies",
     version="1.0.0",
-    description="/freply_add, /freply_list, /freply <имя> <chat_id> — быстрая отправка шаблонов.",
+    description="/freply_add, /freply_list, /freply [имя] [chat_id] — быстрая отправка шаблонов.",
     author="you",
 )
 

@@ -6,7 +6,7 @@ from FunPayAPI.common.enums import OrderStatuses
 INFO = PluginInfo(
     name="Orders",
     version="1.0.0",
-    description="/orders — список заказов, /order <id> — детали, /refund <id> — возврат.",
+    description="/orders — список заказов, /order [id] — детали, /refund [id] — возврат.",
     author="you",
 )
 

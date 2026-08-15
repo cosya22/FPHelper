@@ -7,7 +7,7 @@ from fphelper import PluginInfo
 INFO = PluginInfo(
     name="Chats",
     version="1.1.0",
-    description="/chats — список чатов, /reply <chat_id> <текст> — ответить, отправка картинок через меню.",
+    description="/chats — список чатов, /reply [chat_id] [текст] — ответить, отправка картинок через меню.",
     author="you",
 )
 

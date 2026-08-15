@@ -48,6 +48,11 @@ def setup_logging() -> None:
 
     logging.basicConfig(level=logging.INFO, handlers=[console_handler, file_handler])
 
+    # FunPayAPI прячет реальный traceback за DEBUG (в INFO виден только общий текст
+    # "произошла ошибка при получении событий") — включаем DEBUG именно для неё,
+    # чтобы при сбоях было видно настоящую причину, а не только заглушку.
+    logging.getLogger("FunPayAPI").setLevel(logging.DEBUG)
+
 
 def main() -> None:
     setup_logging()
