@@ -74,6 +74,29 @@ class TelegramAdmin:
         self._register_core_commands()
         self._register_pending_catchall()
         self._setup_bot_menu_button()
+        self._check_owner_id_mistake()
+
+    def _check_owner_id_mistake(self) -> None:
+        """
+        Частая ошибка при настройке: в owner_id вписывают ID самого бота (например,
+        по ошибке скопировав число из начала его токена), а не свой личный Telegram ID.
+        Итог — бот пытается писать сам себе (Telegram отвечает 403 Forbidden) и вдобавок
+        игнорирует реального владельца (is_owner() никогда не совпадает). Ловим это сразу
+        при старте и объясняем понятным текстом, а не молчаливым трейсбеком.
+        """
+        try:
+            me = self.bot.get_me()
+        except Exception:
+            logger.exception("Не удалось проверить владельца бота (get_me)")
+            return
+        if me.id == self._config.telegram.owner_id:
+            logger.error(
+                "ОШИБКА НАСТРОЙКИ: в config.json поле telegram.owner_id указывает на ID САМОГО БОТА "
+                f"(@{me.username}, ID {me.id}), а не на ваш личный Telegram ID. Из-за этого бот пытается "
+                "писать сам себе (Forbidden) и не реагирует на ваши команды/кнопки. Исправление: "
+                "узнайте свой личный ID через @userinfobot в Telegram, откройте config.json и замените "
+                f'"owner_id": {self._config.telegram.owner_id} на ваш настоящий ID, затем перезапустите бота.'
+            )
 
     def _wrap_send_message(self) -> None:
         """
