@@ -61,11 +61,42 @@ def _patch_golden_seal_support() -> None:
     _golden_seal_patched = True
 
 
+_chat_history_logging_patched = False
+
+
+def _patch_chat_history_error_logging() -> None:
+    """
+    Runner.generate_new_message_events() при любой ошибке get_chats_histories()
+    (даже не связанной с HTTP-статусом, например KeyError при разборе ответа
+    FunPay) молча пишет только "Не удалось получить истории чатов [id]." и
+    полный traceback шлёт лишь на DEBUG — а его мы намеренно не включаем на
+    постоянку (см. main.py: слишком шумно, дампит HTML на каждый опрос).
+    Патчим именно этот метод, чтобы при ошибке видеть настоящую причину в ERROR-логе,
+    не включая DEBUG для всей FunPayAPI.
+    """
+    global _chat_history_logging_patched
+    if _chat_history_logging_patched:
+        return
+
+    original = Account.get_chats_histories
+
+    def patched(self, chats_data):
+        try:
+            return original(self, chats_data)
+        except Exception:
+            logger.exception(f"Ошибка при получении истории чатов {list(chats_data.keys())}")
+            raise
+
+    Account.get_chats_histories = patched
+    _chat_history_logging_patched = True
+
+
 class FunPayClient:
     """Держит аккаунт FunPay и слушает события через Runner, раздавая их в EventBus."""
 
     def __init__(self, golden_key: str, bus: EventBus, user_agent: str | None = None, proxy: str | None = None):
         _patch_golden_seal_support()
+        _patch_chat_history_error_logging()
         self.bus = bus
         proxy_dict = {"http": proxy, "https": proxy} if proxy else None
         self.account = Account(golden_key, user_agent=user_agent or None, proxy=proxy_dict).get()
