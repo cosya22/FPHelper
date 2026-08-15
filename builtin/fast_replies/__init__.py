@@ -30,7 +30,7 @@ def setup(ctx):
     def cmd_add(message):
         parts = message.text.split(maxsplit=2)
         if len(parts) < 3:
-            ctx.telegram.reply(message, "Использование: /freply_add <имя> <текст>")
+            ctx.telegram.reply(message, "Использование: /freply_add [имя] [текст]")
             return
         name, text = parts[1], parts[2]
         replies = get_replies()
@@ -42,7 +42,7 @@ def setup(ctx):
     def cmd_remove(message):
         parts = message.text.split(maxsplit=1)
         if len(parts) < 2:
-            ctx.telegram.reply(message, "Использование: /freply_remove <имя>")
+            ctx.telegram.reply(message, "Использование: /freply_remove [имя]")
             return
         name = parts[1].strip()
         replies = get_replies()
@@ -61,7 +61,7 @@ def setup(ctx):
     def cmd_send(message):
         parts = message.text.split(maxsplit=2)
         if len(parts) < 3:
-            ctx.telegram.reply(message, "Использование: /freply <имя> <chat_id>")
+            ctx.telegram.reply(message, "Использование: /freply [имя] [chat_id]")
             return
         name, chat_id = parts[1], parts[2].strip()
         replies = get_replies()

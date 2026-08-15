@@ -64,7 +64,7 @@ def setup(ctx):
     def cmd_history(message):
         parts = message.text.split(maxsplit=1)
         if len(parts) < 2:
-            ctx.telegram.reply(message, "Использование: /history <chat_id>")
+            ctx.telegram.reply(message, "Использование: /history [chat_id]")
             return
         try:
             text = build_history_text(parts[1].strip())
@@ -77,7 +77,7 @@ def setup(ctx):
     def cmd_reply(message):
         parts = message.text.split(maxsplit=2)
         if len(parts) < 3:
-            ctx.telegram.reply(message, "Использование: /reply <chat_id> <текст>")
+            ctx.telegram.reply(message, "Использование: /reply [chat_id] [текст]")
             return
         chat_id, text = parts[1], parts[2]
         try:

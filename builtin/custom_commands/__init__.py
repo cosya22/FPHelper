@@ -59,7 +59,7 @@ def setup(ctx):
         if len(parts) < 3:
             ctx.telegram.reply(
                 message,
-                "Использование: /cmd_add <имя> <текст>\n"
+                "Использование: /cmd_add [имя] [текст]\n"
                 "В тексте можно использовать {username} — имя покупателя подставится автоматически.",
             )
             return
@@ -73,7 +73,7 @@ def setup(ctx):
     def cmd_remove(message):
         parts = message.text.split(maxsplit=1)
         if len(parts) < 2:
-            ctx.telegram.reply(message, "Использование: /cmd_remove <имя>")
+            ctx.telegram.reply(message, "Использование: /cmd_remove [имя]")
             return
         name = parts[1].strip().lower()
         commands = get_commands()

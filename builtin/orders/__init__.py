@@ -71,7 +71,7 @@ def setup(ctx):
     def cmd_order(message):
         parts = message.text.split(maxsplit=1)
         if len(parts) < 2:
-            ctx.telegram.reply(message, "Использование: /order <id>")
+            ctx.telegram.reply(message, "Использование: /order [id]")
             return
         try:
             text = build_order_text(parts[1].strip())
@@ -84,7 +84,7 @@ def setup(ctx):
     def cmd_refund(message):
         parts = message.text.split(maxsplit=1)
         if len(parts) < 2:
-            ctx.telegram.reply(message, "Использование: /refund <id>")
+            ctx.telegram.reply(message, "Использование: /refund [id]")
             return
         order_id = parts[1].strip()
         try:

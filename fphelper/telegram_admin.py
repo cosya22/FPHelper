@@ -177,7 +177,7 @@ class TelegramAdmin:
         def wrapper(message):
             if owner_only and not self._access_ok(message.from_user.id):
                 if self.is_owner(message.from_user.id) and not self.is_authenticated(message.from_user.id):
-                    self.bot.reply_to(message, "🔒 Сначала войдите: /login <пароль>")
+                    self.bot.reply_to(message, "🔒 Сначала войдите: /login [пароль]")
                 return
             self._clear_pending(message.from_user.id, message.chat.id)
             handler(message)
@@ -192,7 +192,7 @@ class TelegramAdmin:
             if owner_only and not self._access_ok(call.from_user.id):
                 self.bot.answer_callback_query(call.id)
                 if self.is_owner(call.from_user.id) and not self.is_authenticated(call.from_user.id):
-                    self.bot.send_message(call.message.chat.id, "🔒 Сначала войдите: /login <пароль>")
+                    self.bot.send_message(call.message.chat.id, "🔒 Сначала войдите: /login [пароль]")
                 return
             try:
                 self.bot.answer_callback_query(call.id)
@@ -372,7 +372,7 @@ class TelegramAdmin:
                 return
             parts = message.text.split(maxsplit=1)
             if len(parts) < 2 or not parts[1].strip():
-                self.bot.reply_to(message, "Использование: /login <пароль>")
+                self.bot.reply_to(message, "Использование: /login [пароль]")
                 return
             if hash_password(parts[1].strip()) == self._config.telegram.password_hash:
                 self._authenticated.add(message.from_user.id)
@@ -386,7 +386,7 @@ class TelegramAdmin:
             if not self.is_owner(message.from_user.id):
                 return
             if not self.is_authenticated(message.from_user.id):
-                self.bot.reply_to(message, "🔒 Этот бот защищён паролем. Введите: /login <пароль>")
+                self.bot.reply_to(message, "🔒 Этот бот защищён паролем. Введите: /login [пароль]")
                 return
             self._clear_pending(message.from_user.id, message.chat.id)
             self._send_or_edit_main_menu(message.chat.id)

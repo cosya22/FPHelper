@@ -70,7 +70,7 @@ def setup(ctx):
     def cmd_lot(message):
         parts = message.text.split(maxsplit=1)
         if len(parts) < 2 or not parts[1].strip().isdigit():
-            ctx.telegram.reply(message, "Использование: /lot <lot_id>")
+            ctx.telegram.reply(message, "Использование: /lot [lot_id]")
             return
         try:
             text = build_lot_text(int(parts[1].strip()))
@@ -83,7 +83,7 @@ def setup(ctx):
     def cmd_toggle(message):
         parts = message.text.split(maxsplit=1)
         if len(parts) < 2 or not parts[1].strip().isdigit():
-            ctx.telegram.reply(message, "Использование: /lot_toggle <lot_id>")
+            ctx.telegram.reply(message, "Использование: /lot_toggle [lot_id]")
             return
         lot_id = int(parts[1].strip())
         try:
@@ -98,7 +98,7 @@ def setup(ctx):
     def cmd_price(message):
         parts = message.text.split(maxsplit=2)
         if len(parts) < 3:
-            ctx.telegram.reply(message, "Использование: /lot_price <lot_id> <новая_цена>")
+            ctx.telegram.reply(message, "Использование: /lot_price [lot_id] [новая_цена]")
             return
         if not parts[1].strip().isdigit():
             ctx.telegram.reply(message, "lot_id должен быть числом.")

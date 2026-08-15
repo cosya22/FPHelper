@@ -94,7 +94,7 @@ def setup(ctx):
     def cmd_add_text(message):
         parts = message.text.split(maxsplit=2)
         if len(parts) < 3:
-            ctx.telegram.reply(message, "Использование: /delivery_add_text <ключевое_слово> <текст выдачи>")
+            ctx.telegram.reply(message, "Использование: /delivery_add_text [ключевое_слово] [текст выдачи]")
             return
         keyword, content = parts[1], parts[2]
         rules = get_rules()
@@ -108,7 +108,7 @@ def setup(ctx):
         if len(parts) < 3:
             ctx.telegram.reply(
                 message,
-                "Использование: /delivery_stock_add <ключевое_слово> <позиция>\n"
+                "Использование: /delivery_stock_add [ключевое_слово] [позиция]\n"
                 "Вызывайте по разу на каждую позицию (ключ, код и т.п.) — они уходят по одной за заказ.",
             )
             return
@@ -125,7 +125,7 @@ def setup(ctx):
     def cmd_remove(message):
         parts = message.text.split(maxsplit=1)
         if len(parts) < 2:
-            ctx.telegram.reply(message, "Использование: /delivery_remove <ключевое_слово>")
+            ctx.telegram.reply(message, "Использование: /delivery_remove [ключевое_слово]")
             return
         keyword = parts[1].strip()
         rules = get_rules()

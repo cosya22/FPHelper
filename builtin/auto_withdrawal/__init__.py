@@ -113,7 +113,7 @@ def setup(ctx):
         if len(parts) < 6:
             ctx.telegram.reply(
                 message,
-                "Использование: /withdrawal_setup <валюта> <кошелёк> <адрес> <сумма|all> <интервал_часов>",
+                "Использование: /withdrawal_setup [валюта] [кошелёк] [адрес] [сумма|all] [интервал_часов]",
             )
             return
         _, currency_raw, wallet_raw, address, amount_raw, interval_raw = parts

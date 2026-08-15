@@ -108,7 +108,7 @@ def setup(ctx):
     def cmd_reply(message):
         parts = message.text.split(maxsplit=2)
         if len(parts) < 3:
-            ctx.telegram.reply(message, "Использование: /review_reply <order_id> <текст>")
+            ctx.telegram.reply(message, "Использование: /review_reply [order_id] [текст]")
             return
         order_id, text = parts[1], parts[2]
         try:
@@ -122,7 +122,7 @@ def setup(ctx):
     def cmd_delete(message):
         parts = message.text.split(maxsplit=1)
         if len(parts) < 2:
-            ctx.telegram.reply(message, "Использование: /review_delete <order_id>")
+            ctx.telegram.reply(message, "Использование: /review_delete [order_id]")
             return
         order_id = parts[1].strip()
         try:
