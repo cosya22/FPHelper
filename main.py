@@ -134,7 +134,15 @@ def main() -> None:
     logger.info(f"Подключено: {fp_client.account.username} (ID {fp_client.account.id})")
 
     try:
-        balance = fp_client.account.get_balance()
+        # get_balance() нужен ID хоть какого-то существующего лота на FunPay (это
+        # баланс залогиненного аккаунта, а не владельца лота). Захардкоженный ID по
+        # умолчанию в FunPayAPI мог протухнуть — сначала пробуем свой активный лот.
+        try:
+            own_lots = fp_client.account.get_user(fp_client.account.id).get_lots()
+        except Exception:
+            own_lots = []
+        lot_id = own_lots[0].id if own_lots else 18853876
+        balance = fp_client.account.get_balance(lot_id=lot_id)
         print_profile_card(fp_client.account, balance)
     except Exception:
         logger.debug("Не удалось получить баланс для карточки профиля", exc_info=True)

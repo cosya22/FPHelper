@@ -66,13 +66,34 @@ class TelegramAdmin:
         self._section_order: list[str] = []
         self._pending: dict[int, Callable[[Message], None]] = {}
         self._authenticated: set[int] = set()
-        # ID последнего "висящего" сообщения-запроса (ask()) на чат — чтобы не
-        # копились в чате старые "Пришлите ID лота" и т.п., если пользователь
-        # проигнорировал их и запустил что-то новое.
+        # ID последнего "висящего" сообщения на чат (ask()-запрос или показанный
+        # плагином результат вроде карточки профиля) — чтобы оно не оставалось в
+        # чате мусором, когда пользователь уходит в другой раздел/команду.
         self._last_prompt_message: dict[int, int] = {}
+        self._wrap_send_message()
         self._register_core_commands()
         self._register_pending_catchall()
         self._setup_bot_menu_button()
+
+    def _wrap_send_message(self) -> None:
+        """
+        Оборачивает bot.send_message, чтобы ЛЮБОЕ сообщение, отправленное через
+        self.bot.send_message (в т.ч. напрямую из плагинов через ctx.telegram.bot),
+        запоминалось как "последнее висящее" и подчищалось при переходе в другой
+        раздел/команду (см. _clear_pending). notify_owner и первая отправка главного
+        меню используют _raw_send_message в обход этого — их удалять не нужно.
+        """
+        self._raw_send_message = self.bot.send_message
+
+        def tracked_send_message(chat_id, *args, **kwargs):
+            sent = self._raw_send_message(chat_id, *args, **kwargs)
+            try:
+                self._last_prompt_message[chat_id] = sent.message_id
+            except AttributeError:
+                pass
+            return sent
+
+        self.bot.send_message = tracked_send_message
 
     def is_owner(self, user_id: int) -> bool:
         return user_id == self._config.telegram.owner_id
@@ -117,7 +138,7 @@ class TelegramAdmin:
         if not self.is_notification_enabled(event_type):
             return
         try:
-            self.bot.send_message(self._config.telegram.owner_id, text)
+            self._raw_send_message(self._config.telegram.owner_id, text)
         except ApiTelegramException as e:
             if "chat not found" in str(e).lower():
                 logger.warning(
@@ -183,6 +204,11 @@ class TelegramAdmin:
         try:
             self.bot.set_my_commands(commands)
             self.bot.set_chat_menu_button(menu_button=tg_types.MenuButtonCommands())
+            logger.info(
+                "Кнопка меню Telegram настроена. Если она не появилась рядом с полем ввода — "
+                "полностью закройте чат с ботом и откройте заново (или перезапустите Telegram), "
+                "клиент кеширует её и не всегда обновляет на лету."
+            )
         except Exception:
             logger.exception("Не удалось настроить кнопку меню Telegram")
 
@@ -308,7 +334,7 @@ class TelegramAdmin:
         if message_id:
             self.bot.edit_message_text(text, chat_id, message_id, reply_markup=kb)
         else:
-            self.bot.send_message(chat_id, text, reply_markup=kb)
+            self._raw_send_message(chat_id, text, reply_markup=kb)
 
     def _register_core_commands(self) -> None:
         self.register_menu_button("🧩 Модули", "📋 Список модулей и плагинов", "core:plugins")
