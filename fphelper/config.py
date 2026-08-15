@@ -1,6 +1,7 @@
 import json
 import os
 from dataclasses import asdict, dataclass
+from urllib.parse import urlparse
 
 from colorama import Fore, Style, init as colorama_init
 
@@ -99,7 +100,17 @@ def run_setup_wizard(path: str = CONFIG_PATH) -> Config:
 
     print()
     _hint("Прокси для FunPay (необязательно, вида http://user:pass@host:port). Enter — пропустить.")
-    proxy = _prompt("Прокси: ").strip()
+    while True:
+        proxy = _prompt("Прокси: ").strip()
+        if not proxy:
+            break
+        parsed = urlparse(proxy)
+        if parsed.scheme in ("http", "https", "socks4", "socks5") and parsed.hostname:
+            break
+        _error(
+            "Похоже, прокси в неправильном формате. Нужно вида http://host:port или "
+            "http://user:pass@host:port (со схемой в начале). Попробуйте снова, либо Enter — пропустить."
+        )
 
     config = Config(
         funpay=FunPayConfig(golden_key=golden_key, proxy=proxy),
