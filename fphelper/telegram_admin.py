@@ -66,8 +66,13 @@ class TelegramAdmin:
         self._section_order: list[str] = []
         self._pending: dict[int, Callable[[Message], None]] = {}
         self._authenticated: set[int] = set()
+        # ID последнего "висящего" сообщения-запроса (ask()) на чат — чтобы не
+        # копились в чате старые "Пришлите ID лота" и т.п., если пользователь
+        # проигнорировал их и запустил что-то новое.
+        self._last_prompt_message: dict[int, int] = {}
         self._register_core_commands()
         self._register_pending_catchall()
+        self._setup_bot_menu_button()
 
     def is_owner(self, user_id: int) -> bool:
         return user_id == self._config.telegram.owner_id
@@ -130,6 +135,7 @@ class TelegramAdmin:
                 if self.is_owner(message.from_user.id) and not self.is_authenticated(message.from_user.id):
                     self.bot.reply_to(message, "🔒 Сначала войдите: /login <пароль>")
                 return
+            self._clear_pending(message.from_user.id, message.chat.id)
             handler(message)
 
         self.bot.message_handler(commands=list(names))(wrapper)
@@ -148,9 +154,37 @@ class TelegramAdmin:
                 self.bot.answer_callback_query(call.id)
             except Exception:
                 pass
+            self._clear_pending(call.from_user.id, call.message.chat.id)
             handler(call)
 
         self.bot.callback_query_handler(func=matches)(wrapper)
+
+    def _clear_pending(self, user_id: int, chat_id: int) -> None:
+        """Сбрасывает незавершённый ask() и убирает его сообщение-запрос из чата."""
+        self._pending.pop(user_id, None)
+        msg_id = self._last_prompt_message.pop(chat_id, None)
+        if msg_id:
+            try:
+                self.bot.delete_message(chat_id, msg_id)
+            except Exception:
+                pass
+
+    def _setup_bot_menu_button(self) -> None:
+        """Кнопка меню со списком команд рядом со скрепкой в поле ввода Telegram."""
+        from telebot import types as tg_types
+
+        commands = [
+            tg_types.BotCommand("menu", "Открыть меню"),
+            tg_types.BotCommand("profile", "Профиль"),
+            tg_types.BotCommand("plugins", "Список модулей"),
+            tg_types.BotCommand("login", "Войти по паролю"),
+            tg_types.BotCommand("cancel", "Отменить текущее действие"),
+        ]
+        try:
+            self.bot.set_my_commands(commands)
+            self.bot.set_chat_menu_button(menu_button=tg_types.MenuButtonCommands())
+        except Exception:
+            logger.exception("Не удалось настроить кнопку меню Telegram")
 
     def register_menu_button(self, section: str, label, callback_data: str, group: str | None = None) -> None:
         """
@@ -167,8 +201,16 @@ class TelegramAdmin:
         """
         Отправляет вопрос и ждёт следующее текстовое сообщение от этого пользователя —
         когда оно придёт (и не начинается с "/"), вызывает on_answer(message) один раз.
+        Если до этого в чате уже висел неотвеченный запрос — убирает его, чтобы не копился мусор.
         """
-        self.bot.send_message(chat_id, f"{prompt}\n\n(или /cancel, чтобы отменить)")
+        old = self._last_prompt_message.pop(chat_id, None)
+        if old:
+            try:
+                self.bot.delete_message(chat_id, old)
+            except Exception:
+                pass
+        sent = self.bot.send_message(chat_id, f"{prompt}\n\n(или /cancel, чтобы отменить)")
+        self._last_prompt_message[chat_id] = sent.message_id
         self._pending[user_id] = on_answer
 
     def _register_pending_catchall(self) -> None:
@@ -178,6 +220,12 @@ class TelegramAdmin:
         @self.bot.message_handler(func=has_pending)
         def handle_pending(message):
             callback = self._pending.pop(message.from_user.id, None)
+            msg_id = self._last_prompt_message.pop(message.chat.id, None)
+            if msg_id:
+                try:
+                    self.bot.delete_message(message.chat.id, msg_id)
+                except Exception:
+                    pass
             if callback:
                 callback(message)
 
@@ -185,7 +233,14 @@ class TelegramAdmin:
         def cmd_cancel(message):
             if not self.is_owner(message.from_user.id):
                 return
-            if self._pending.pop(message.from_user.id, None) is not None:
+            had_pending = self._pending.pop(message.from_user.id, None) is not None
+            msg_id = self._last_prompt_message.pop(message.chat.id, None)
+            if msg_id:
+                try:
+                    self.bot.delete_message(message.chat.id, msg_id)
+                except Exception:
+                    pass
+            if had_pending:
                 self.bot.reply_to(message, "Отменено.")
             else:
                 self.bot.reply_to(message, "Нечего отменять.")
@@ -262,6 +317,7 @@ class TelegramAdmin:
         def cmd_login(message):
             if not self.is_owner(message.from_user.id):
                 return
+            self._clear_pending(message.from_user.id, message.chat.id)
             if not self._config.telegram.password_hash:
                 self.bot.reply_to(message, "Пароль не задан — доступ уже открыт по Telegram ID.")
                 return
@@ -283,12 +339,14 @@ class TelegramAdmin:
             if not self.is_authenticated(message.from_user.id):
                 self.bot.reply_to(message, "🔒 Этот бот защищён паролем. Введите: /login <пароль>")
                 return
+            self._clear_pending(message.from_user.id, message.chat.id)
             self._send_or_edit_main_menu(message.chat.id)
 
         @self.bot.message_handler(commands=["plugins"])
         def cmd_plugins(message):
             if not self._access_ok(message.from_user.id):
                 return
+            self._clear_pending(message.from_user.id, message.chat.id)
             self.bot.reply_to(message, self._plugins_text())
 
         # --- навигация по меню ---
@@ -301,6 +359,7 @@ class TelegramAdmin:
             self.bot.answer_callback_query(call.id)
             if not self._access_ok(call.from_user.id):
                 return
+            self._clear_pending(call.from_user.id, call.message.chat.id)
             self._send_or_edit_main_menu(call.message.chat.id, call.message.message_id)
 
         @self.bot.callback_query_handler(func=lambda c: c.data.startswith(MENU_SECTION_PREFIX))
@@ -308,6 +367,7 @@ class TelegramAdmin:
             self.bot.answer_callback_query(call.id)
             if not self._access_ok(call.from_user.id):
                 return
+            self._clear_pending(call.from_user.id, call.message.chat.id)
             section = call.data[len(MENU_SECTION_PREFIX):]
             self.bot.edit_message_text(
                 f"<b>{section}</b>",

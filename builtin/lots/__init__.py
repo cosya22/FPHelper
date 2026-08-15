@@ -1,15 +1,14 @@
 """
-Управление лотами по ID: просмотр, вкл/выкл, изменение цены.
-
-Официальная FunPayAPI не даёт метода "список моих лотов" — только просмотр/правку
-конкретного лота по его ID (ID виден в адресе страницы лота на FunPay, funpay.com/lots/<id>/).
+Управление лотами: список активных лотов профиля, просмотр/вкл-выкл/цена по ID.
 """
+
+import html
 
 from fphelper import PluginInfo
 
 INFO = PluginInfo(
     name="Lots",
-    version="1.0.0",
+    version="1.1.0",
     description="/lot [id] — просмотр, /lot_toggle и /lot_price — управление лотом.",
     author="you",
 )
@@ -35,6 +34,37 @@ def setup(ctx):
         fields.price = price
         fields.renew_fields()
         ctx.account.save_lot(fields)
+
+    def build_lots_list_text():
+        lots = ctx.account.get_user(ctx.account.id).get_lots()
+        if not lots:
+            return "Активных лотов не найдено."
+        lines = [f"<b>Активные лоты ({len(lots)}):</b>\n"]
+        for lot in lots:
+            title = html.escape(lot.description or lot.subcategory.name)
+            server = f", {html.escape(lot.server)}" if lot.server else ""
+            lines.append(f"🔹 <code>{lot.id}</code> {title}{server} — {lot.price}")
+        return "\n".join(lines)
+
+    @ctx.telegram.command("lots")
+    def cmd_lots(message):
+        try:
+            text = build_lots_list_text()
+        except Exception as e:
+            ctx.telegram.reply(message, f"❌ Не удалось получить список лотов: {e}")
+            return
+        for i in range(0, len(text), 3500):
+            ctx.telegram.reply(message, text[i:i + 3500])
+
+    @ctx.telegram.menu_item(SECTION, "📋 Мои лоты", "lots:list")
+    def cbq_list(call):
+        try:
+            text = build_lots_list_text()
+        except Exception as e:
+            ctx.telegram.bot.send_message(call.message.chat.id, f"❌ Не удалось получить список лотов: {e}")
+            return
+        for i in range(0, len(text), 3500):
+            ctx.telegram.bot.send_message(call.message.chat.id, text[i:i + 3500])
 
     @ctx.telegram.command("lot")
     def cmd_lot(message):

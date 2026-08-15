@@ -13,10 +13,19 @@ INFO = PluginInfo(
 def setup(ctx):
     def build_text():
         acc = ctx.account
-        currency = getattr(acc.currency, "name", acc.currency)
+        # Account не хранит баланс/валюту сам по себе (нет .currency/.total_balance) —
+        # баланс сразу в 3 валютах отдаёт отдельный запрос get_balance().
+        try:
+            balance = acc.get_balance()
+            balance_line = (
+                f"💰 Баланс: <code>{balance.total_rub:.2f}</code> RUB · "
+                f"<code>{balance.total_usd:.2f}</code> USD · <code>{balance.total_eur:.2f}</code> EUR"
+            )
+        except Exception:
+            balance_line = "💰 Баланс: не удалось получить"
         return (
             f"<b>👤 {acc.username}</b> (ID {acc.id})\n\n"
-            f"💰 Баланс: <code>{acc.total_balance}</code> {currency}\n"
+            f"{balance_line}\n"
             f"🛒 Активные продажи: <code>{acc.active_sales}</code>\n"
             f"🛍️ Активные покупки: <code>{acc.active_purchases}</code>"
         )
