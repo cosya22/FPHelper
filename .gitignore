@@ -4,3 +4,8 @@ __pycache__/
 config.json
 /storage/
 /logs/
+
+# платные плагины — не публикуются в открытом репозитории, продаются отдельно
+/plugins/telegram_stars/
+/plugins/telegram_premium/
+/plugins/auto_steam_rental/

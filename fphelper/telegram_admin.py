@@ -2,6 +2,7 @@ import logging
 from typing import Callable
 
 from telebot import TeleBot
+from telebot.apihelper import ApiTelegramException
 from telebot.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from .config import Config
@@ -42,6 +43,14 @@ class TelegramAdmin:
     def notify_owner(self, text: str) -> None:
         try:
             self.bot.send_message(self._config.telegram.owner_id, text)
+        except ApiTelegramException as e:
+            if "chat not found" in str(e).lower():
+                logger.warning(
+                    "Не могу написать владельцу бота: чат не найден. Откройте вашего бота в Telegram "
+                    "и нажмите «Start» — боты не могут первыми писать тем, кто ни разу не открывал с ними чат."
+                )
+            else:
+                logger.exception("Не удалось отправить уведомление владельцу бота")
         except Exception:
             logger.exception("Не удалось отправить уведомление владельцу бота")
 

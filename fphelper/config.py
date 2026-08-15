@@ -92,6 +92,8 @@ def run_setup_wizard(path: str = CONFIG_PATH) -> Config:
 
     print()
     _hint("Ваш Telegram ID можно узнать у @userinfobot.")
+    _hint("ВАЖНО: перед этим найдите своего бота в Telegram (по имени, которое дали @BotFather) и нажмите «Start» —")
+    _hint("боты не могут первыми писать тем, кто ни разу не открывал с ними чат.")
     while True:
         owner_raw = _prompt("Ваш Telegram ID: ").strip()
         if owner_raw.isdigit():
