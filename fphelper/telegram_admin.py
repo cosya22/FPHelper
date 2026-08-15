@@ -6,7 +6,7 @@ from telebot import TeleBot
 from telebot.apihelper import ApiTelegramException
 from telebot.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
-from .config import Config
+from .config import Config, hash_password
 
 logger = logging.getLogger("fphelper.telegram")
 
@@ -18,6 +18,8 @@ class TelegramAdmin:
     """
     Обёртка над Telegram-ботом (pyTelegramBotAPI): доступ есть только у владельца
     бота (его Telegram ID задаётся один раз при первом запуске, в config.json).
+    Если при настройке задан пароль — владельцу нужно ещё ввести /login <пароль>
+    после каждого перезапуска бота, прежде чем откроется меню.
 
     Кроме команд, есть кнопочное меню: плагины регистрируют свои пункты через
     register_menu_button()/PluginTelegram.menu_item(), а параметризованные действия
@@ -32,11 +34,21 @@ class TelegramAdmin:
         self._menu_sections: dict[str, list[tuple[str, str]]] = {}
         self._section_order: list[str] = []
         self._pending: dict[int, Callable[[Message], None]] = {}
+        self._authenticated: set[int] = set()
         self._register_core_commands()
         self._register_pending_catchall()
 
     def is_owner(self, user_id: int) -> bool:
         return user_id == self._config.telegram.owner_id
+
+    def is_authenticated(self, user_id: int) -> bool:
+        """Прошёл ли владелец /login в этом запуске бота (если пароль вообще задан)."""
+        if not self._config.telegram.password_hash:
+            return True
+        return user_id in self._authenticated
+
+    def _access_ok(self, user_id: int) -> bool:
+        return self.is_owner(user_id) and self.is_authenticated(user_id)
 
     def set_plugins(self, plugins) -> None:
         self._plugins = plugins
@@ -57,7 +69,9 @@ class TelegramAdmin:
 
     def register_command(self, names, handler, owner_only: bool = True) -> None:
         def wrapper(message):
-            if owner_only and not self.is_owner(message.from_user.id):
+            if owner_only and not self._access_ok(message.from_user.id):
+                if self.is_owner(message.from_user.id) and not self.is_authenticated(message.from_user.id):
+                    self.bot.reply_to(message, "🔒 Сначала войдите: /login <пароль>")
                 return
             handler(message)
 
@@ -68,8 +82,10 @@ class TelegramAdmin:
             return call.data == prefix or call.data.startswith(f"{prefix}:")
 
         def wrapper(call):
-            if owner_only and not self.is_owner(call.from_user.id):
+            if owner_only and not self._access_ok(call.from_user.id):
                 self.bot.answer_callback_query(call.id)
+                if self.is_owner(call.from_user.id) and not self.is_authenticated(call.from_user.id):
+                    self.bot.send_message(call.message.chat.id, "🔒 Сначала войдите: /login <пароль>")
                 return
             try:
                 self.bot.answer_callback_query(call.id)
@@ -114,9 +130,12 @@ class TelegramAdmin:
                 self.bot.reply_to(message, "Нечего отменять.")
 
     def _main_menu_kb(self) -> InlineKeyboardMarkup:
-        kb = InlineKeyboardMarkup()
-        for section in self._section_order:
-            kb.add(InlineKeyboardButton(section, callback_data=f"{MENU_SECTION_PREFIX}{section}"))
+        kb = InlineKeyboardMarkup(row_width=2)
+        buttons = [
+            InlineKeyboardButton(section, callback_data=f"{MENU_SECTION_PREFIX}{section}")
+            for section in self._section_order
+        ]
+        kb.add(*buttons)
         return kb
 
     def _section_kb(self, section: str) -> InlineKeyboardMarkup:
@@ -137,15 +156,36 @@ class TelegramAdmin:
     def _register_core_commands(self) -> None:
         self.register_menu_button("🧩 Модули", "📋 Список модулей и плагинов", "core:plugins")
 
+        @self.bot.message_handler(commands=["login"])
+        def cmd_login(message):
+            if not self.is_owner(message.from_user.id):
+                return
+            if not self._config.telegram.password_hash:
+                self.bot.reply_to(message, "Пароль не задан — доступ уже открыт по Telegram ID.")
+                return
+            parts = message.text.split(maxsplit=1)
+            if len(parts) < 2 or not parts[1].strip():
+                self.bot.reply_to(message, "Использование: /login <пароль>")
+                return
+            if hash_password(parts[1].strip()) == self._config.telegram.password_hash:
+                self._authenticated.add(message.from_user.id)
+                self.bot.reply_to(message, "✅ Вход выполнен.")
+                self._send_or_edit_main_menu(message.chat.id)
+            else:
+                self.bot.reply_to(message, "❌ Неверный пароль.")
+
         @self.bot.message_handler(commands=["start", "help", "menu"])
         def cmd_start(message):
             if not self.is_owner(message.from_user.id):
+                return
+            if not self.is_authenticated(message.from_user.id):
+                self.bot.reply_to(message, "🔒 Этот бот защищён паролем. Введите: /login <пароль>")
                 return
             self._send_or_edit_main_menu(message.chat.id)
 
         @self.bot.message_handler(commands=["plugins"])
         def cmd_plugins(message):
-            if not self.is_owner(message.from_user.id):
+            if not self._access_ok(message.from_user.id):
                 return
             self.bot.reply_to(message, self._plugins_text())
 
@@ -153,11 +193,15 @@ class TelegramAdmin:
         @self.bot.callback_query_handler(func=lambda c: c.data == MENU_MAIN)
         def cbq_main(call: CallbackQuery):
             self.bot.answer_callback_query(call.id)
+            if not self._access_ok(call.from_user.id):
+                return
             self._send_or_edit_main_menu(call.message.chat.id, call.message.message_id)
 
         @self.bot.callback_query_handler(func=lambda c: c.data.startswith(MENU_SECTION_PREFIX))
         def cbq_section(call: CallbackQuery):
             self.bot.answer_callback_query(call.id)
+            if not self._access_ok(call.from_user.id):
+                return
             section = call.data[len(MENU_SECTION_PREFIX):]
             self.bot.edit_message_text(
                 f"<b>{section}</b>",
@@ -169,6 +213,8 @@ class TelegramAdmin:
         @self.bot.callback_query_handler(func=lambda c: c.data == "core:plugins")
         def cbq_plugins(call: CallbackQuery):
             self.bot.answer_callback_query(call.id)
+            if not self._access_ok(call.from_user.id):
+                return
             self.bot.send_message(call.message.chat.id, self._plugins_text())
 
     def _plugins_text(self) -> str:

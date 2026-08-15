@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 from dataclasses import asdict, dataclass
@@ -22,6 +23,11 @@ class FunPayConfig:
 class TelegramConfig:
     token: str
     owner_id: int = 0
+    password_hash: str = ""  # пусто — доп. пароль выключен, только проверка Telegram ID
+
+
+def hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 
 @dataclass
@@ -101,6 +107,19 @@ def run_setup_wizard(path: str = CONFIG_PATH) -> Config:
         _error("Нужно ввести число. Попробуйте снова.")
 
     print()
+    _hint("Придумайте пароль для бота — доп. защита сверх проверки Telegram ID: даже если кто-то")
+    _hint("напишет боту с вашего аккаунта (например, через угнанную сессию), без пароля меню не откроется.")
+    while True:
+        password = _prompt("Пароль для бота: ").strip()
+        if not password:
+            _error("Пароль не может быть пустым. Попробуйте снова.")
+            continue
+        password_confirm = _prompt("Повторите пароль: ").strip()
+        if password == password_confirm:
+            break
+        _error("Пароли не совпадают. Попробуйте снова.")
+
+    print()
     _hint("Прокси для FunPay (необязательно, вида user:pass@host:port или http://host:port). Enter — пропустить.")
     while True:
         proxy = _prompt("Прокси: ").strip()
@@ -118,7 +137,7 @@ def run_setup_wizard(path: str = CONFIG_PATH) -> Config:
 
     config = Config(
         funpay=FunPayConfig(golden_key=golden_key, proxy=proxy),
-        telegram=TelegramConfig(token=token, owner_id=int(owner_raw)),
+        telegram=TelegramConfig(token=token, owner_id=int(owner_raw), password_hash=hash_password(password)),
     )
     save_config(config, path)
     _success(f"\nКонфиг сохранён в {path}. Его не нужно никому передавать — там ваши секреты.\n")

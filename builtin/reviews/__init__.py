@@ -15,7 +15,7 @@ from fphelper import PluginInfo
 
 INFO = PluginInfo(
     name="Reviews",
-    version="1.0.0",
+    version="1.1.0",
     description="Уведомляет о новых отзывах на последние закрытые заказы, позволяет ответить/удалить ответ.",
     author="you",
 )
@@ -40,6 +40,9 @@ def setup(ctx):
                 ctx.logger.exception("Не удалось получить закрытые заказы")
                 continue
 
+            # первый запуск (хранилище ещё пустое) — только запоминаем уже существующие
+            # отзывы как увиденные, не уведомляя о них как о новых
+            first_run = ctx.storage.get("seen_order_ids", None) is None
             seen = get_seen()
             changed = False
             for order_shortcut in closed_orders[:MAX_ORDERS_PER_CHECK]:
@@ -54,13 +57,14 @@ def setup(ctx):
 
                 seen.add(order.id)
                 changed = True
-                ctx.notify_owner(
-                    f"🌟 Новый отзыв ({order.review.stars}/5) по заказу {order.id}\n"
-                    f"От {order.buyer_username}: {order.review.text}\n\n"
-                    f"Ответить: /review_reply {order.id} текст"
-                )
+                if not first_run:
+                    ctx.notify_owner(
+                        f"🌟 Новый отзыв ({order.review.stars}/5) по заказу {order.id}\n"
+                        f"От {order.buyer_username}: {order.review.text}\n\n"
+                        f"Ответить: /review_reply {order.id} текст"
+                    )
 
-            if changed:
+            if changed or first_run:
                 save_seen(seen)
 
     threading.Thread(target=worker, daemon=True).start()

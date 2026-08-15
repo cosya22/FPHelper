@@ -60,9 +60,14 @@ chmod +x install.sh run.sh
 ### Первый запуск
 Бот спросит в консоли: golden key от FunPay (F12 на funpay.com → Application
 → Cookies → `golden_key`), токен Telegram-бота (получить у [@BotFather](https://t.me/BotFather)),
-ваш Telegram ID (узнать у [@userinfobot](https://t.me/userinfobot)) и, если
-нужно, прокси. Дальше бот сам подключится к FunPay — всё управление в
-Telegram, доступ есть только у вас.
+ваш Telegram ID (узнать у [@userinfobot](https://t.me/userinfobot)), пароль
+для бота (доп. защита сверх проверки Telegram ID) и, если нужно, прокси.
+Дальше бот сам подключится к FunPay — всё управление в Telegram, доступ есть
+только у вас.
+
+После каждого перезапуска бота нужно один раз ввести `/login <пароль>` в
+чате с ботом — без этого меню не откроется, даже если пишете со своего
+аккаунта.
 
 ## 🧩 Плагины
 
