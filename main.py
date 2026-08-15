@@ -106,10 +106,11 @@ def setup_logging() -> None:
 
     logging.basicConfig(level=logging.INFO, handlers=[console_handler, file_handler])
 
-    # FunPayAPI прячет реальный traceback за DEBUG (в INFO виден только общий текст
-    # "произошла ошибка при получении событий") — включаем DEBUG именно для неё,
-    # чтобы при сбоях было видно настоящую причину, а не только заглушку.
-    logging.getLogger("FunPayAPI").setLevel(logging.DEBUG)
+    # Тело ответа FunPay при ошибках запросов добавляем в текст исключения —
+    # пригодится, если что-то сломается, но само по себе ничего не логирует
+    # и не шумит, в отличие от DEBUG-уровня всей FunPayAPI (специально не
+    # включаем его на постоянной основе — он на каждый опрос дампит полный
+    # HTML переписки в лог).
     patch_request_error_logging()
 
 
