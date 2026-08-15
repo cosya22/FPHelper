@@ -2,11 +2,11 @@
 
 import io
 
-from fphelper import PluginInfo
+from fphelper import PluginInfo, blacklist
 
 INFO = PluginInfo(
     name="Chats",
-    version="1.1.0",
+    version="1.2.0",
     description="/chats — список чатов, /reply [chat_id] [текст] — ответить, отправка картинок через меню.",
     author="you",
 )
@@ -37,6 +37,16 @@ def setup(ctx):
             text = (m.text or "[изображение]").replace("\n", " ")[:150]
             lines.append(f"<b>{author}:</b> {text}")
         return "\n".join(lines)
+
+    @ctx.events.new_message
+    def on_message_notify(event):
+        message = event.message
+        if message.author_id == ctx.account.id or not message.text:
+            return
+        if blacklist.is_restricted(message.author, "no_message_notify"):
+            return
+        preview = message.text.replace("\n", " ")[:200]
+        ctx.notify_owner(f"💬 {message.author}: {preview}", event_type="new_message")
 
     @ctx.telegram.command("chats")
     def cmd_chats(message):

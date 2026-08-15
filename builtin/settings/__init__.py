@@ -8,15 +8,17 @@ Golden key и токен Telegram-бота тут не меняются наме
 с FunPay устанавливается один раз при старте.
 """
 
+import json
+import os
 from urllib.parse import urlparse
 
 from fphelper import PluginInfo
-from fphelper.config import CONFIG_PATH, load_config, save_config
+from fphelper.config import CONFIG_PATH, Config, load_config, save_config
 
 INFO = PluginInfo(
     name="Settings",
-    version="1.0.0",
-    description="Настройка прокси для FunPay через Telegram, без пересоздания config.json.",
+    version="1.2.0",
+    description="Настройка прокси и экспорт/импорт конфига для FunPay через Telegram.",
     author="you",
 )
 
@@ -35,7 +37,7 @@ def setup(ctx):
         auth = " (с логином/паролем)" if parsed.username else ""
         return f"Прокси: {host}:{port}{auth}"
 
-    @ctx.telegram.menu_item(SECTION, "🌐 Прокси", "settings:proxy_ask")
+    @ctx.telegram.menu_item(SECTION, "🌐 Прокси", "settings:proxy_ask", group="СОЕДИНЕНИЕ")
     def cbq_proxy(call):
         def on_proxy(msg):
             text = msg.text.strip()
@@ -77,3 +79,38 @@ def setup(ctx):
             f"или «-», чтобы убрать текущий.",
             on_proxy,
         )
+
+    @ctx.telegram.menu_item(SECTION, "⬇️ Выгрузить конфиг", "settings:export", group="КОНФИГИ")
+    def cbq_export(call):
+        if not os.path.exists(CONFIG_PATH):
+            ctx.telegram.bot.send_message(call.message.chat.id, "❌ config.json не найден.")
+            return
+        with open(CONFIG_PATH, "rb") as f:
+            ctx.telegram.bot.send_document(
+                call.message.chat.id, f, visible_file_name="config.json",
+                caption="Ваш config.json — там golden key и токен бота, никому не пересылайте.",
+            )
+
+    @ctx.telegram.menu_item(SECTION, "⬆️ Загрузить конфиг", "settings:import_ask", group="КОНФИГИ")
+    def cbq_import_ask(call):
+        def on_file(msg):
+            document = getattr(msg, "document", None)
+            if not document:
+                ctx.telegram.bot.send_message(msg.chat.id, "Это не похоже на файл. Пришлите config.json (или /cancel).")
+                return
+            try:
+                file_info = ctx.telegram.bot.get_file(document.file_id)
+                raw = ctx.telegram.bot.download_file(file_info.file_path)
+                data = json.loads(raw.decode("utf-8"))
+                Config.from_dict(data)  # только валидация формата
+            except Exception as e:
+                ctx.telegram.bot.send_message(msg.chat.id, f"❌ Файл не похож на корректный config.json: {e}")
+                return
+
+            with open(CONFIG_PATH, "wb") as f:
+                f.write(raw)
+            ctx.telegram.bot.send_message(
+                msg.chat.id, "✅ Конфиг загружен. Перезапустите бота, чтобы применить."
+            )
+
+        ctx.telegram.ask(call.message.chat.id, call.from_user.id, "Пришлите файл config.json.", on_file)

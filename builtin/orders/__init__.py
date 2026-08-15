@@ -1,11 +1,11 @@
 """Просмотр и управление заказами: список, детали, возврат."""
 
-from fphelper import PluginInfo
+from fphelper import PluginInfo, blacklist
 from FunPayAPI.common.enums import OrderStatuses
 
 INFO = PluginInfo(
     name="Orders",
-    version="1.0.0",
+    version="1.1.0",
     description="/orders — список заказов, /order [id] — детали, /refund [id] — возврат.",
     author="you",
 )
@@ -46,6 +46,16 @@ def setup(ctx):
             f"Сумма: {order.sum}\n"
             f"Покупатель: {order.buyer_username}"
             f"{review}"
+        )
+
+    @ctx.events.new_order
+    def on_order_notify(event):
+        order = event.order
+        if blacklist.is_restricted(order.buyer_username, "no_order_notify"):
+            return
+        ctx.notify_owner(
+            f"📋 Новый заказ {order.id}: {order.description[:60]} — {order.price} ({order.buyer_username})",
+            event_type="new_order",
         )
 
     @ctx.telegram.command("orders")

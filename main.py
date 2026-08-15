@@ -125,7 +125,8 @@ def main() -> None:
 
     admin.notify_owner(
         f"✅ FPHelper запущен.\nАккаунт: {fp_client.account.username}\n"
-        f"Встроенных модулей: {len(builtin)}\nПлагинов: {len(plugins)}"
+        f"Встроенных модулей: {len(builtin)}\nПлагинов: {len(plugins)}",
+        event_type="bot_started",
     )
 
     try:

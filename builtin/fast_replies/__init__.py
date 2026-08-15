@@ -4,7 +4,7 @@ from fphelper import PluginInfo
 
 INFO = PluginInfo(
     name="Fast Replies",
-    version="1.0.0",
+    version="1.1.0",
     description="/freply_add, /freply_list, /freply [имя] [chat_id] — быстрая отправка шаблонов.",
     author="you",
 )
@@ -77,11 +77,11 @@ def setup(ctx):
 
     SECTION = "⚡ Быстрые ответы"
 
-    @ctx.telegram.menu_item(SECTION, "📋 Список", "freply:list")
+    @ctx.telegram.menu_item(SECTION, "📋 Список", "freply:list", group="УПРАВЛЕНИЕ")
     def cbq_list(call):
         ctx.telegram.bot.send_message(call.message.chat.id, build_list_text())
 
-    @ctx.telegram.menu_item(SECTION, "➕ Добавить", "freply:add_ask")
+    @ctx.telegram.menu_item(SECTION, "➕ Добавить", "freply:add_ask", group="НАСТРОЙКИ")
     def cbq_add_ask(call):
         def on_name(msg):
             name = msg.text.strip()
@@ -96,7 +96,7 @@ def setup(ctx):
 
         ctx.telegram.ask(call.message.chat.id, call.from_user.id, "Пришлите имя быстрого ответа.", on_name)
 
-    @ctx.telegram.menu_item(SECTION, "📤 Отправить", "freply:send_ask")
+    @ctx.telegram.menu_item(SECTION, "📤 Отправить", "freply:send_ask", group="УПРАВЛЕНИЕ")
     def cbq_send_ask(call):
         def on_name(msg):
             name = msg.text.strip()
@@ -116,7 +116,7 @@ def setup(ctx):
 
         ctx.telegram.ask(call.message.chat.id, call.from_user.id, "Пришлите имя быстрого ответа.", on_name)
 
-    @ctx.telegram.menu_item(SECTION, "🗑 Удалить", "freply:remove_ask")
+    @ctx.telegram.menu_item(SECTION, "🗑 Удалить", "freply:remove_ask", group="НАСТРОЙКИ")
     def cbq_remove_ask(call):
         def on_name(msg):
             name = msg.text.strip()

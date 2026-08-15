@@ -3,11 +3,11 @@
 бот отвечает заранее заданным текстом. Поддерживается плейсхолдер {username}.
 """
 
-from fphelper import PluginInfo
+from fphelper import PluginInfo, blacklist
 
 INFO = PluginInfo(
     name="Custom Commands",
-    version="1.0.0",
+    version="1.2.0",
     description="Покупатель пишет !команда в чате — бот отвечает заданным текстом.",
     author="you",
 )
@@ -41,11 +41,16 @@ def setup(ctx):
         commands = get_commands()
         if name not in commands:
             return
+        if blacklist.is_restricted(message.author, "no_commands"):
+            return
         reply = commands[name].format(username=message.author or "")
         try:
             ctx.account.send_message(message.chat_id, reply)
         except Exception:
             ctx.logger.exception(f"Не удалось ответить на команду !{name}")
+            return
+        if not blacklist.is_restricted(message.author, "no_command_notify"):
+            ctx.notify_owner(f"❗ {message.author} вызвал команду !{name}", event_type="command_received")
 
     @ctx.telegram.command("cmd_add")
     def cmd_add(message):
@@ -84,11 +89,11 @@ def setup(ctx):
 
     SECTION = "❗ Команды"
 
-    @ctx.telegram.menu_item(SECTION, "📋 Список", "cmd:list")
+    @ctx.telegram.menu_item(SECTION, "📋 Список", "cmd:list", group="УПРАВЛЕНИЕ")
     def cbq_list(call):
         ctx.telegram.bot.send_message(call.message.chat.id, build_list_text())
 
-    @ctx.telegram.menu_item(SECTION, "➕ Добавить", "cmd:add_ask")
+    @ctx.telegram.menu_item(SECTION, "➕ Добавить", "cmd:add_ask", group="НАСТРОЙКИ")
     def cbq_add_ask(call):
         def on_name(msg):
             name = msg.text.strip().lower()
@@ -107,7 +112,7 @@ def setup(ctx):
 
         ctx.telegram.ask(call.message.chat.id, call.from_user.id, "Пришлите имя команды (без !).", on_name)
 
-    @ctx.telegram.menu_item(SECTION, "🗑 Удалить", "cmd:remove_ask")
+    @ctx.telegram.menu_item(SECTION, "🗑 Удалить", "cmd:remove_ask", group="НАСТРОЙКИ")
     def cbq_remove_ask(call):
         def on_name(msg):
             name = msg.text.strip().lower()

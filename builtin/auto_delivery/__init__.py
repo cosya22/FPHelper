@@ -7,11 +7,11 @@
 то есть в названии лота должно встречаться слово, на которое вы настроили выдачу.
 """
 
-from fphelper import PluginInfo
+from fphelper import PluginInfo, blacklist
 
 INFO = PluginInfo(
     name="Auto Delivery",
-    version="1.0.0",
+    version="1.2.0",
     description="Автоматически выдаёт товар (текст или позицию со склада) сразу после оплаты заказа.",
     author="you",
 )
@@ -49,6 +49,9 @@ def setup(ctx):
         keyword, rule = find_rule(order.description)
         if not rule:
             return
+        if blacklist.is_restricted(order.buyer_username, "no_delivery"):
+            ctx.logger.info(f"Заказ {order.id}: покупатель {order.buyer_username} в чёрном списке, авто-выдача пропущена")
+            return
 
         try:
             chat = ctx.account.get_chat_by_name(order.buyer_username, make_request=True)
@@ -79,7 +82,9 @@ def setup(ctx):
             ctx.notify_owner(f"❌ Заказ {order.id}: не удалось отправить выдачу — {e}")
             return
 
-        ctx.notify_owner(f"✅ Заказ {order.id}: выдано по правилу «{keyword}» ({order.buyer_username})")
+        ctx.notify_owner(
+            f"✅ Заказ {order.id}: выдано по правилу «{keyword}» ({order.buyer_username})", event_type="delivery"
+        )
 
     @ctx.telegram.command("delivery_list")
     def cmd_list(message):
@@ -133,11 +138,11 @@ def setup(ctx):
 
     SECTION = "🚀 Авто-выдача"
 
-    @ctx.telegram.menu_item(SECTION, "📋 Список правил", "delivery:list")
+    @ctx.telegram.menu_item(SECTION, "📋 Список правил", "delivery:list", group="УПРАВЛЕНИЕ")
     def cbq_list(call):
         ctx.telegram.bot.send_message(call.message.chat.id, build_list_text())
 
-    @ctx.telegram.menu_item(SECTION, "➕ Текстовое правило", "delivery:add_text_ask")
+    @ctx.telegram.menu_item(SECTION, "➕ Текстовое правило", "delivery:add_text_ask", group="НАСТРОЙКИ")
     def cbq_add_text_ask(call):
         def on_keyword(msg):
             keyword = msg.text.strip()
@@ -156,7 +161,7 @@ def setup(ctx):
             on_keyword,
         )
 
-    @ctx.telegram.menu_item(SECTION, "📦 Добавить на склад", "delivery:stock_add_ask")
+    @ctx.telegram.menu_item(SECTION, "📦 Добавить на склад", "delivery:stock_add_ask", group="НАСТРОЙКИ")
     def cbq_stock_add_ask(call):
         def on_keyword(msg):
             keyword = msg.text.strip()
@@ -180,7 +185,7 @@ def setup(ctx):
             on_keyword,
         )
 
-    @ctx.telegram.menu_item(SECTION, "🗑 Удалить правило", "delivery:remove_ask")
+    @ctx.telegram.menu_item(SECTION, "🗑 Удалить правило", "delivery:remove_ask", group="НАСТРОЙКИ")
     def cbq_remove_ask(call):
         def on_keyword(msg):
             keyword = msg.text.strip()

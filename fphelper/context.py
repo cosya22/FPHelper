@@ -62,7 +62,7 @@ class PluginTelegram:
             return func
         return deco
 
-    def menu_item(self, section: str, label, callback_data: str, owner_only: bool = True):
+    def menu_item(self, section: str, label, callback_data: str, owner_only: bool = True, group: str | None = None):
         """
         Одновременно регистрирует обработчик колбэка и кнопку с ним в разделе
         главного Telegram-меню (раздел создаётся сам при первой кнопке в нём).
@@ -71,10 +71,14 @@ class PluginTelegram:
         удобно для кнопок-переключателей, чья подпись показывает текущее состояние
         (например "🟢 Автоподнятие" / "🔴 Автоподнятие") и пересчитывается при
         каждой отрисовке меню.
+
+        group — необязательная категория внутри раздела (например "НАСТРОЙКИ",
+        "УПРАВЛЕНИЕ", "ССЫЛКИ") — кнопки с одинаковым group рисуются вместе под
+        общим заголовком-разделителем, как в главном меню.
         """
         def deco(func):
             self._admin.register_callback(callback_data, func, owner_only=owner_only)
-            self._admin.register_menu_button(section, label, callback_data)
+            self._admin.register_menu_button(section, label, callback_data, group=group)
             return func
         return deco
 
@@ -83,6 +87,12 @@ class PluginTelegram:
         self._admin.bot.edit_message_reply_markup(
             call.message.chat.id, call.message.message_id, reply_markup=self._admin.section_keyboard(section)
         )
+
+    def is_notification_enabled(self, event_type: str) -> bool:
+        return self._admin.is_notification_enabled(event_type)
+
+    def toggle_notification(self, event_type: str) -> bool:
+        return self._admin.toggle_notification(event_type)
 
     def ask(self, chat_id: int | str, user_id: int, prompt: str, on_answer):
         """Спрашивает текстом и один раз вызывает on_answer(message), когда владелец ответит."""
@@ -115,4 +125,4 @@ class PluginContext:
     telegram: PluginTelegram
     storage: PluginStorage
     logger: Logger
-    notify_owner: Callable[[str], None]
+    notify_owner: Callable[..., None]  # notify_owner(text, event_type="other") — второй аргумент опционален

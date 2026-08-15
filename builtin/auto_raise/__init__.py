@@ -13,7 +13,7 @@ from FunPayAPI.common.exceptions import RaiseError
 
 INFO = PluginInfo(
     name="Auto Raise Lots",
-    version="1.1.0",
+    version="1.2.0",
     description="Периодически поднимает выбранные категории лотов на FunPay.",
     author="you",
 )
@@ -162,11 +162,11 @@ def setup(ctx):
 
     SECTION = "⬆️ Авто-поднятие"
 
-    @ctx.telegram.menu_item(SECTION, "📊 Статус", "autoraise:status")
+    @ctx.telegram.menu_item(SECTION, "📊 Статус", "autoraise:status", group="УПРАВЛЕНИЕ")
     def cbq_status(call):
         ctx.telegram.bot.send_message(call.message.chat.id, build_status_text())
 
-    @ctx.telegram.menu_item(SECTION, "📂 Мои категории", "autoraise:categories")
+    @ctx.telegram.menu_item(SECTION, "📂 Мои категории", "autoraise:categories", group="УПРАВЛЕНИЕ")
     def cbq_categories(call):
         try:
             text = build_categories_text()
@@ -174,7 +174,7 @@ def setup(ctx):
             text = f"❌ Не удалось получить категории: {e}"
         ctx.telegram.bot.send_message(call.message.chat.id, text)
 
-    @ctx.telegram.menu_item(SECTION, "➕ Добавить категорию", "autoraise:add_ask")
+    @ctx.telegram.menu_item(SECTION, "➕ Добавить категорию", "autoraise:add_ask", group="НАСТРОЙКИ")
     def cbq_add_ask(call):
         def on_id(msg):
             if not msg.text.strip().isdigit():
@@ -191,7 +191,7 @@ def setup(ctx):
     def toggle_label():
         return "🟢 Авто-поднятие" if get_state()["enabled"] else "🔴 Авто-поднятие"
 
-    @ctx.telegram.menu_item(SECTION, toggle_label, "autoraise:toggle")
+    @ctx.telegram.menu_item(SECTION, toggle_label, "autoraise:toggle", group="НАСТРОЙКИ")
     def cbq_toggle(call):
         state = get_state()
         state["enabled"] = not state["enabled"]

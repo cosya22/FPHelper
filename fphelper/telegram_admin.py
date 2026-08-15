@@ -1,5 +1,7 @@
 import html
+import json
 import logging
+import os
 from typing import Callable
 
 from telebot import TeleBot
@@ -12,6 +14,35 @@ logger = logging.getLogger("fphelper.telegram")
 
 MENU_MAIN = "menu:main"
 MENU_SECTION_PREFIX = "menu:section:"
+
+NOTIFICATION_SETTINGS_PATH = "storage/builtin/notifications.json"
+
+# Тип уведомления -> подпись в меню. "other" — всё, что явно не размечено
+# (в т.ч. сторонние плагины) — всегда есть как общий рубильник.
+NOTIFICATION_TYPES = {
+    "new_message": "💬 Новое сообщение",
+    "new_order": "📋 Новый заказ",
+    "command_received": "❗ Получена команда",
+    "review": "🌟 Оставлен отзыв",
+    "delivery": "🚀 Выдача товара",
+    "bot_started": "🟢 Запуск бота",
+    "other": "🔌 Прочее (плагины)",
+}
+
+# Раскладка главного меню по категориям — только для визуальной группировки,
+# на доступ и логику не влияет. Разделы, которых нет в списке (в т.ч. плагины),
+# попадают в категорию "ПЛАГИНЫ И ПРОЧЕЕ".
+SECTION_CATEGORIES: dict[str, list[str]] = {
+    "УПРАВЛЕНИЕ": ["👤 Профиль", "💬 Чаты", "📋 Заказы", "🛍️ Лоты", "🌟 Отзывы", "📊 Статистика"],
+    "АВТОМАТИЗАЦИЯ": ["⬆️ Авто-поднятие", "🚀 Авто-выдача", "⚡ Быстрые ответы", "❗ Команды", "💸 Авто-вывод"],
+    "НАСТРОЙКИ": ["⚙️ Настройки", "🔔 Уведомления", "🚫 Чёрный список"],
+    "СИСТЕМА": ["🗒️ Логи", "🧩 Модули"],
+}
+OTHER_CATEGORY = "ПЛАГИНЫ И ПРОЧЕЕ"
+
+# "Новое сообщение" по умолчанию выключено — иначе при активном чате бот
+# засыпает владельца уведомлением на каждую реплику покупателя.
+NOTIFICATION_DEFAULTS = {k: (k != "new_message") for k in NOTIFICATION_TYPES}
 
 
 class TelegramAdmin:
@@ -53,7 +84,33 @@ class TelegramAdmin:
     def set_plugins(self, plugins) -> None:
         self._plugins = plugins
 
-    def notify_owner(self, text: str) -> None:
+    def _load_notification_settings(self) -> dict:
+        if not os.path.exists(NOTIFICATION_SETTINGS_PATH):
+            return dict(NOTIFICATION_DEFAULTS)
+        with open(NOTIFICATION_SETTINGS_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        for key, default in NOTIFICATION_DEFAULTS.items():
+            data.setdefault(key, default)
+        return data
+
+    def _save_notification_settings(self, data: dict) -> None:
+        os.makedirs(os.path.dirname(NOTIFICATION_SETTINGS_PATH), exist_ok=True)
+        with open(NOTIFICATION_SETTINGS_PATH, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+    def is_notification_enabled(self, event_type: str) -> bool:
+        return self._load_notification_settings().get(event_type, True)
+
+    def toggle_notification(self, event_type: str) -> bool:
+        """Переключает тип уведомления, возвращает новое состояние (включено/выключено)."""
+        data = self._load_notification_settings()
+        data[event_type] = not data.get(event_type, True)
+        self._save_notification_settings(data)
+        return data[event_type]
+
+    def notify_owner(self, text: str, event_type: str = "other") -> None:
+        if not self.is_notification_enabled(event_type):
+            return
         try:
             self.bot.send_message(self._config.telegram.owner_id, text)
         except ApiTelegramException as e:
@@ -95,15 +152,16 @@ class TelegramAdmin:
 
         self.bot.callback_query_handler(func=matches)(wrapper)
 
-    def register_menu_button(self, section: str, label, callback_data: str) -> None:
+    def register_menu_button(self, section: str, label, callback_data: str, group: str | None = None) -> None:
         """
         Добавляет кнопку в раздел меню (раздел появляется на главном экране автоматически).
         label — строка или функция без аргументов, возвращающая строку (для кнопок-переключателей).
+        group — категория внутри раздела для заголовка-разделителя (см. PluginTelegram.menu_item).
         """
         if section not in self._menu_sections:
             self._menu_sections[section] = []
             self._section_order.append(section)
-        self._menu_sections[section].append((label, callback_data))
+        self._menu_sections[section].append((label, callback_data, group))
 
     def ask(self, chat_id: int | str, user_id: int, prompt: str, on_answer: Callable[[Message], None]) -> None:
         """
@@ -134,18 +192,54 @@ class TelegramAdmin:
 
     def _main_menu_kb(self) -> InlineKeyboardMarkup:
         kb = InlineKeyboardMarkup(row_width=2)
-        buttons = [
-            InlineKeyboardButton(section, callback_data=f"{MENU_SECTION_PREFIX}{section}")
-            for section in self._section_order
-        ]
-        kb.add(*buttons)
+
+        remaining = list(self._section_order)
+        categories = list(SECTION_CATEGORIES.items())
+        other_sections = [s for s in remaining if not any(s in secs for _, secs in categories)]
+        if other_sections:
+            categories = categories + [(OTHER_CATEGORY, other_sections)]
+
+        for category, wanted in categories:
+            present = [s for s in wanted if s in remaining]
+            if not present:
+                continue
+            kb.row(InlineKeyboardButton(f"── {category} ──", callback_data="menu:noop"))
+            kb.add(*[
+                InlineKeyboardButton(s, callback_data=f"{MENU_SECTION_PREFIX}{s}")
+                for s in present
+            ])
+            for s in present:
+                remaining.remove(s)
         return kb
 
     def _section_kb(self, section: str) -> InlineKeyboardMarkup:
         kb = InlineKeyboardMarkup(row_width=2)
-        for label, callback_data in self._menu_sections.get(section, []):
-            resolved = label() if callable(label) else label
-            kb.add(InlineKeyboardButton(resolved, callback_data=callback_data))
+        items = self._menu_sections.get(section, [])
+
+        groups: dict[str | None, list] = {}
+        order: list[str | None] = []
+        for label, callback_data, group in items:
+            if group not in groups:
+                groups[group] = []
+                order.append(group)
+            groups[group].append((label, callback_data))
+
+        def add_buttons(pairs):
+            kb.add(*[
+                InlineKeyboardButton(label() if callable(label) else label, callback_data=callback_data)
+                for label, callback_data in pairs
+            ])
+
+        # кнопки без категории (старые модули, не размечавшие group) — сверху, без заголовка
+        if None in groups:
+            add_buttons(groups[None])
+
+        for group in order:
+            if group is None:
+                continue
+            kb.row(InlineKeyboardButton(f"── {group} ──", callback_data="menu:noop"))
+            add_buttons(groups[group])
+
         kb.add(InlineKeyboardButton("⬅ Главное меню", callback_data=MENU_MAIN))
         return kb
 
@@ -198,6 +292,10 @@ class TelegramAdmin:
             self.bot.reply_to(message, self._plugins_text())
 
         # --- навигация по меню ---
+        @self.bot.callback_query_handler(func=lambda c: c.data == "menu:noop")
+        def cbq_noop(call: CallbackQuery):
+            self.bot.answer_callback_query(call.id)
+
         @self.bot.callback_query_handler(func=lambda c: c.data == MENU_MAIN)
         def cbq_main(call: CallbackQuery):
             self.bot.answer_callback_query(call.id)
@@ -223,11 +321,42 @@ class TelegramAdmin:
             self.bot.answer_callback_query(call.id)
             if not self._access_ok(call.from_user.id):
                 return
-            self.bot.send_message(call.message.chat.id, self._plugins_text())
+            if not self._plugins:
+                self.bot.send_message(call.message.chat.id, "Нет загруженных модулей.")
+                return
+            kb = InlineKeyboardMarkup(row_width=2)
+            kb.add(*[
+                InlineKeyboardButton(p.info.name, callback_data=f"core:plugin_info:{i}")
+                for i, p in enumerate(self._plugins)
+            ])
+            self.bot.send_message(call.message.chat.id, "<b>Модули и плагины:</b>\nВыберите, чтобы открыть карточку.", reply_markup=kb)
 
-    def _plugins_text(self) -> str:
-        if not self._plugins:
-            return "Нет загруженных модулей."
+        @self.bot.callback_query_handler(func=lambda c: c.data.startswith("core:plugin_info:"))
+        def cbq_plugin_info(call: CallbackQuery):
+            self.bot.answer_callback_query(call.id)
+            if not self._access_ok(call.from_user.id):
+                return
+            try:
+                p = self._plugins[int(call.data.rsplit(":", 1)[-1])]
+            except (ValueError, IndexError):
+                return
+
+            kind = "Встроенный модуль" if getattr(p, "builtin", False) else "Плагин"
+            text = (
+                f"<b>{html.escape(p.info.name)}</b> v{html.escape(str(p.info.version))}\n"
+                f"{kind}\n\n{html.escape(p.info.description)}"
+            )
+
+            # если у плагина есть свой раздел меню с похожим названием — дадим кнопку сразу туда
+            matching_section = next(
+                (s for s in self._section_order if p.info.name.lower() in s.lower()), None
+            )
+            kb = None
+            if matching_section:
+                kb = InlineKeyboardMarkup()
+                kb.add(InlineKeyboardButton("⚙️ Открыть меню плагина", callback_data=f"{MENU_SECTION_PREFIX}{matching_section}"))
+
+            self.bot.send_message(call.message.chat.id, text, reply_markup=kb)
 
         def line(p) -> str:
             # экранируем — описание может прийти из стороннего плагина и содержать

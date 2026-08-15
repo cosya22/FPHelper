@@ -12,7 +12,7 @@ from FunPayAPI.common.enums import Currency, Wallet
 
 INFO = PluginInfo(
     name="Auto Withdrawal",
-    version="1.1.0",
+    version="1.2.0",
     description="Периодический вывод средств с баланса FunPay (выключен по умолчанию).",
     author="you",
 )
@@ -160,11 +160,11 @@ def setup(ctx):
 
     SECTION = "💸 Авто-вывод"
 
-    @ctx.telegram.menu_item(SECTION, "📊 Статус", "withdrawal:status")
+    @ctx.telegram.menu_item(SECTION, "📊 Статус", "withdrawal:status", group="УПРАВЛЕНИЕ")
     def cbq_status(call):
         ctx.telegram.bot.send_message(call.message.chat.id, build_status_text())
 
-    @ctx.telegram.menu_item(SECTION, "⚙️ Настроить", "withdrawal:setup_ask")
+    @ctx.telegram.menu_item(SECTION, "⚙️ Настроить", "withdrawal:setup_ask", group="НАСТРОЙКИ")
     def cbq_setup_ask(call):
         def on_currency(msg):
             currency_raw = msg.text.strip()
@@ -224,7 +224,7 @@ def setup(ctx):
     def toggle_label():
         return "🟢 Авто-вывод" if get_state()["enabled"] else "🔴 Авто-вывод"
 
-    @ctx.telegram.menu_item(SECTION, toggle_label, "withdrawal:toggle")
+    @ctx.telegram.menu_item(SECTION, toggle_label, "withdrawal:toggle", group="НАСТРОЙКИ")
     def cbq_toggle(call):
         state = get_state()
         if not state["enabled"] and (not state["currency"] or not state["wallet"] or not state["address"]):
