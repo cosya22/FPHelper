@@ -3,7 +3,9 @@ import threading
 import time
 
 import requests as requests_lib
+from bs4 import BeautifulSoup
 from FunPayAPI import Account, Runner
+from FunPayAPI import types as funpay_types
 from FunPayAPI.common import exceptions as funpay_exceptions
 
 from .events import EventBus
@@ -91,12 +93,95 @@ def _patch_chat_history_error_logging() -> None:
     _chat_history_logging_patched = True
 
 
+_parse_messages_patched = False
+
+
+def _patch_parse_messages_robustness() -> None:
+    """
+    FunPayAPI.Account.__parse_messages падает AttributeError, если у сообщения нет
+    ожидаемого <div class="message-text"> (встречаются системные/нестандартные
+    сообщения, для которых библиотека не предусмотрела разбор) — из-за этого вся
+    история чата не приходит, Runner несколько раз впустую повторяет запрос и в
+    итоге сдаётся ("превышено кол-во попыток"), а чат так и не обрабатывается.
+    Патчим на более отказоустойчивую версию: при отсутствии ожидаемого блока
+    подставляем пустой текст вместо падения. Заодно чиним баг апстрима —
+    `self.chat_id_private` (без вызова) в оригинале всегда truthy, чекбокс "это
+    личный чат" эффективно никогда не проверялся.
+    """
+    global _parse_messages_patched
+    if _parse_messages_patched:
+        return
+
+    bot_character_attr = "_Account__bot_character"
+
+    def patched(self, json_messages, chat_id, interlocutor_id=None, interlocutor_username=None, from_id=0):
+        messages = []
+        ids = {self.id: self.username, 0: "FunPay"}
+        badges = {}
+        if interlocutor_id is not None:
+            ids[interlocutor_id] = interlocutor_username
+
+        for i in json_messages:
+            if i["id"] < from_id:
+                continue
+            author_id = i["author"]
+            parser = BeautifulSoup(i["html"], "html.parser")
+
+            if None in [ids.get(author_id), badges.get(author_id)] and \
+                    (author_div := parser.find("div", {"class": "media-user-name"})):
+                if badges.get(author_id) is None:
+                    badge = author_div.find("span")
+                    badges[author_id] = badge.text if badge else 0
+                if ids.get(author_id) is None:
+                    author_a = author_div.find("a")
+                    author = author_a.text.strip() if author_a else None
+                    if author:
+                        ids[author_id] = author
+                        if self.chat_id_private(chat_id) and author_id == interlocutor_id and not interlocutor_username:
+                            interlocutor_username = author
+                            ids[interlocutor_id] = interlocutor_username
+
+            image_tag = parser.find("a", {"class": "chat-img-link"})
+            if self.chat_id_private(chat_id) and image_tag:
+                image_link = image_tag.get("href")
+                message_text = None
+            else:
+                image_link = None
+                if author_id == 0:
+                    node = parser.find("div", {"class": "alert alert-with-icon alert-info"})
+                else:
+                    node = parser.find("div", {"class": "message-text"})
+                message_text = node.text.strip() if node else ""
+
+            bot_character = getattr(self, bot_character_attr)
+            by_bot = False
+            if not image_link and message_text and message_text.startswith(bot_character):
+                message_text = message_text.replace(bot_character, "", 1)
+                by_bot = True
+
+            message_obj = funpay_types.Message(i["id"], message_text, chat_id, interlocutor_username,
+                                               None, author_id, i["html"], image_link, determine_msg_type=False)
+            message_obj.by_bot = by_bot
+            message_obj.type = funpay_types.MessageTypes.NON_SYSTEM if author_id != 0 else message_obj.get_message_type()
+            messages.append(message_obj)
+
+        for i in messages:
+            i.author = ids.get(i.author_id)
+            i.chat_name = interlocutor_username
+            i.badge = badges.get(i.author_id) if badges.get(i.author_id) != 0 else None
+        return messages
+
+    Account._Account__parse_messages = patched
+    _parse_messages_patched = True
+
+
 class FunPayClient:
     """Держит аккаунт FunPay и слушает события через Runner, раздавая их в EventBus."""
 
     def __init__(self, golden_key: str, bus: EventBus, user_agent: str | None = None, proxy: str | None = None):
         _patch_golden_seal_support()
         _patch_chat_history_error_logging()
+        _patch_parse_messages_robustness()
         self.bus = bus
         proxy_dict = {"http": proxy, "https": proxy} if proxy else None
         self.account = Account(golden_key, user_agent=user_agent or None, proxy=proxy_dict).get()
