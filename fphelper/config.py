@@ -99,17 +99,19 @@ def run_setup_wizard(path: str = CONFIG_PATH) -> Config:
         _error("Нужно ввести число. Попробуйте снова.")
 
     print()
-    _hint("Прокси для FunPay (необязательно, вида http://user:pass@host:port). Enter — пропустить.")
+    _hint("Прокси для FunPay (необязательно, вида user:pass@host:port или http://host:port). Enter — пропустить.")
     while True:
         proxy = _prompt("Прокси: ").strip()
         if not proxy:
             break
+        if "://" not in proxy:
+            proxy = f"http://{proxy}"  # провайдеры часто дают адрес без схемы — подставляем сами
         parsed = urlparse(proxy)
         if parsed.scheme in ("http", "https", "socks4", "socks5") and parsed.hostname:
             break
         _error(
-            "Похоже, прокси в неправильном формате. Нужно вида http://host:port или "
-            "http://user:pass@host:port (со схемой в начале). Попробуйте снова, либо Enter — пропустить."
+            "Похоже, прокси в неправильном формате. Нужно вида host:port или "
+            "user:pass@host:port. Попробуйте снова, либо Enter — пропустить."
         )
 
     config = Config(
