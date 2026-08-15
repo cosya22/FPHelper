@@ -15,8 +15,9 @@ from fphelper import PluginInfo
 
 INFO = PluginInfo(
     name="Reviews",
-    version="1.3.0",
-    description="Уведомляет о новых отзывах, умеет отвечать автоматически по количеству звёзд.",
+    version="1.4.0",
+    description="Уведомляет о новых отзывах, умеет отвечать автоматически по количеству звёзд "
+                 "(настройка авто-ответа — в разделе «❗ Команды», вместе с остальными автоответами).",
     author="you",
 )
 
@@ -122,6 +123,9 @@ def setup(ctx):
         ctx.telegram.reply(message, "✅ Ответ на отзыв удалён.")
 
     SECTION = "🌟 Отзывы"
+    # Настройка авто-ответа по звёздам — не сюда, а в общий раздел с остальными
+    # автоответами (свои команды и т.п.), чтобы в "Отзывах" были только отзывы.
+    AUTOREPLY_SECTION = "❗ Команды"
 
     @ctx.telegram.menu_item(SECTION, "✍️ Ответить на отзыв", "reviews:reply_ask", group="УПРАВЛЕНИЕ")
     def cbq_reply_ask(call):
@@ -177,12 +181,17 @@ def setup(ctx):
                     return
                 rule["enabled"] = not rule["enabled"]
                 save_auto_reply(settings)
-                ctx.telegram.refresh_section(call, SECTION)
+                ctx.telegram.refresh_section(call, AUTOREPLY_SECTION)
             return cbq_toggle
 
-        ctx.telegram.menu_item(SECTION, make_toggle(), f"reviews:autoreply_toggle:{stars}", group="НАСТРОЙКИ")(make_handler())
+        ctx.telegram.menu_item(
+            AUTOREPLY_SECTION, make_toggle(), f"reviews:autoreply_toggle:{stars}", group="🌟 Авто-ответ на отзывы"
+        )(make_handler())
 
-    @ctx.telegram.menu_item(SECTION, "✏️ Изменить текст авто-ответа", "reviews:autoreply_text_ask", group="НАСТРОЙКИ")
+    @ctx.telegram.menu_item(
+        AUTOREPLY_SECTION, "✏️ Изменить текст авто-ответа на отзыв", "reviews:autoreply_text_ask",
+        group="🌟 Авто-ответ на отзывы",
+    )
     def cbq_autoreply_text_ask(call):
         def on_stars(msg):
             if msg.text.strip() not in ("1", "2", "3", "4", "5"):
