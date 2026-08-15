@@ -467,6 +467,10 @@ class TelegramAdmin:
 
             self.bot.send_message(call.message.chat.id, text, reply_markup=kb)
 
+    def _plugins_text(self) -> str:
+        if not self._plugins:
+            return "Нет загруженных модулей."
+
         def line(p) -> str:
             # экранируем — описание может прийти из стороннего плагина и содержать
             # символы, которые Telegram примет за (нерабочую) HTML-разметку
