@@ -147,17 +147,26 @@ def _patch_parse_messages_robustness() -> None:
                 message_text = None
             else:
                 image_link = None
-                if author_id == 0:
-                    node = parser.find("div", {"class": "alert alert-with-icon alert-info"})
-                else:
-                    node = parser.find("div", {"class": "message-text"})
+                # FunPay сменил вёрстку: раньше текст лежал в div.message-text, теперь —
+                # в div.chat-msg-text (подтверждено реальным HTML из лога пользователя,
+                # 15.08.2026). Системные строки (author_id == 0) по-прежнему пробуем через
+                # старый alert-класс первым, но chat-msg-text — как рабочий запасной вариант.
+                candidates = (
+                    ["alert alert-with-icon alert-info", "chat-msg-text"]
+                    if author_id == 0 else
+                    ["chat-msg-text", "message-text"]
+                )
+                node = None
+                for css_class in candidates:
+                    node = parser.find("div", {"class": css_class})
+                    if node:
+                        break
                 if node:
                     message_text = node.text.strip()
                 else:
                     message_text = ""
-                    # Раньше это было падением с AttributeError (см. _patch_parse_messages_robustness) —
-                    # теперь просто пустой текст, но логируем HTML, чтобы понять, что за
-                    # сообщение и не изменилась ли вёрстка FunPay (тогда тут нужен свежий class-селектор).
+                    # Ни один из известных селекторов не подошёл — логируем HTML, чтобы
+                    # понять, что это за сообщение (см. _patch_parse_messages_robustness).
                     logger.warning(
                         f"Сообщение id={i.get('id')} (author_id={author_id}) в чате {chat_id}: "
                         f"не найден ожидаемый блок текста в HTML, текст будет пустым. "
