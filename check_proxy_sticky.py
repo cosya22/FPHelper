@@ -22,6 +22,9 @@ if PROXY == "http://user:pass@host:port":
         "впишите в строку PROXY = \"...\" ваш адрес из config.json и запустите снова."
     )
 
+if "://" not in PROXY:
+    PROXY = f"http://{PROXY}"  # можно вписывать и без схемы, как в самом боте
+
 proxies = {"http": PROXY, "https": PROXY}
 
 ips = []
