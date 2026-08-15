@@ -95,8 +95,11 @@ class TelegramAdmin:
 
         self.bot.callback_query_handler(func=matches)(wrapper)
 
-    def register_menu_button(self, section: str, label: str, callback_data: str) -> None:
-        """Добавляет кнопку в раздел меню (раздел появляется на главном экране автоматически)."""
+    def register_menu_button(self, section: str, label, callback_data: str) -> None:
+        """
+        Добавляет кнопку в раздел меню (раздел появляется на главном экране автоматически).
+        label — строка или функция без аргументов, возвращающая строку (для кнопок-переключателей).
+        """
         if section not in self._menu_sections:
             self._menu_sections[section] = []
             self._section_order.append(section)
@@ -139,11 +142,16 @@ class TelegramAdmin:
         return kb
 
     def _section_kb(self, section: str) -> InlineKeyboardMarkup:
-        kb = InlineKeyboardMarkup()
+        kb = InlineKeyboardMarkup(row_width=2)
         for label, callback_data in self._menu_sections.get(section, []):
-            kb.add(InlineKeyboardButton(label, callback_data=callback_data))
+            resolved = label() if callable(label) else label
+            kb.add(InlineKeyboardButton(resolved, callback_data=callback_data))
         kb.add(InlineKeyboardButton("⬅ Главное меню", callback_data=MENU_MAIN))
         return kb
+
+    def section_keyboard(self, section: str) -> InlineKeyboardMarkup:
+        """Публичный доступ к отрисовке раздела — для PluginTelegram.refresh_section()."""
+        return self._section_kb(section)
 
     def _send_or_edit_main_menu(self, chat_id, message_id=None) -> None:
         text = "<b>FPHelper</b>\nВыберите раздел:"

@@ -62,16 +62,27 @@ class PluginTelegram:
             return func
         return deco
 
-    def menu_item(self, section: str, label: str, callback_data: str, owner_only: bool = True):
+    def menu_item(self, section: str, label, callback_data: str, owner_only: bool = True):
         """
         Одновременно регистрирует обработчик колбэка и кнопку с ним в разделе
         главного Telegram-меню (раздел создаётся сам при первой кнопке в нём).
+
+        label может быть строкой или функцией без аргументов, возвращающей строку —
+        удобно для кнопок-переключателей, чья подпись показывает текущее состояние
+        (например "🟢 Автоподнятие" / "🔴 Автоподнятие") и пересчитывается при
+        каждой отрисовке меню.
         """
         def deco(func):
             self._admin.register_callback(callback_data, func, owner_only=owner_only)
             self._admin.register_menu_button(section, label, callback_data)
             return func
         return deco
+
+    def refresh_section(self, call, section: str) -> None:
+        """Перерисовывает текущий раздел меню на месте — вызывайте после смены состояния переключателя."""
+        self._admin.bot.edit_message_reply_markup(
+            call.message.chat.id, call.message.message_id, reply_markup=self._admin.section_keyboard(section)
+        )
 
     def ask(self, chat_id: int | str, user_id: int, prompt: str, on_answer):
         """Спрашивает текстом и один раз вызывает on_answer(message), когда владелец ответит."""

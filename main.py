@@ -29,6 +29,43 @@ class ColorFormatter(logging.Formatter):
         return f"{color}{message}{Style.RESET_ALL}" if color else message
 
 
+def print_banner() -> None:
+    width = 62
+    border = "─" * width
+    lines = [
+        f"┌{border}┐",
+        f"│{'FPHelper'.center(width)}│",
+        f"│{'бот-помощник для продавцов FunPay'.center(width)}│",
+        f"├{border}┤",
+        f"│{'github.com/cosya22/FPHelper'.center(width)}│",
+        f"└{border}┘",
+    ]
+    print()
+    for line in lines:
+        print(f"{Fore.CYAN}{Style.BRIGHT}{line}{Style.RESET_ALL}")
+    print()
+
+
+def print_profile_card(account, balance) -> None:
+    width = 54
+
+    def row(text: str) -> str:
+        return f"│ {text.ljust(width - 2)} │"
+
+    border = "─" * width
+    lines = [
+        f"┌{border}┐",
+        row(f"Аккаунт: {account.username}  (ID {account.id})"),
+        row(f"Баланс: {balance.total_rub:.2f} RUB · {balance.total_usd:.2f} USD · {balance.total_eur:.2f} EUR"),
+        row(f"Активных продаж: {account.active_sales}, покупок: {account.active_purchases}"),
+        f"└{border}┘",
+    ]
+    print()
+    for line in lines:
+        print(f"{Fore.GREEN}{Style.BRIGHT}{line}{Style.RESET_ALL}")
+    print()
+
+
 def setup_logging() -> None:
     os.makedirs("logs", exist_ok=True)
     colorama_init()
@@ -56,6 +93,7 @@ def setup_logging() -> None:
 
 def main() -> None:
     setup_logging()
+    print_banner()
     logger = logging.getLogger("fphelper")
 
     config = load_or_create_config(CONFIG_PATH)
@@ -71,6 +109,12 @@ def main() -> None:
         proxy=config.funpay.proxy or None,
     )
     logger.info(f"Подключено: {fp_client.account.username} (ID {fp_client.account.id})")
+
+    try:
+        balance = fp_client.account.get_balance()
+        print_profile_card(fp_client.account, balance)
+    except Exception:
+        logger.debug("Не удалось получить баланс для карточки профиля", exc_info=True)
 
     builtin = load_builtin(fp_client.account, bus, admin)
     plugins = load_plugins(fp_client.account, bus, admin)

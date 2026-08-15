@@ -12,7 +12,7 @@ from FunPayAPI.common.enums import Currency, Wallet
 
 INFO = PluginInfo(
     name="Auto Withdrawal",
-    version="1.0.0",
+    version="1.1.0",
     description="Периодический вывод средств с баланса FunPay (выключен по умолчанию).",
     author="you",
 )
@@ -221,19 +221,15 @@ def setup(ctx):
             f"Валюта? Варианты: {', '.join(Currency.__members__)}", on_currency,
         )
 
-    @ctx.telegram.menu_item(SECTION, "▶️ Включить", "withdrawal:on")
-    def cbq_on(call):
+    def toggle_label():
+        return "🟢 Авто-вывод" if get_state()["enabled"] else "🔴 Авто-вывод"
+
+    @ctx.telegram.menu_item(SECTION, toggle_label, "withdrawal:toggle")
+    def cbq_toggle(call):
         state = get_state()
-        if not state["currency"] or not state["wallet"] or not state["address"]:
+        if not state["enabled"] and (not state["currency"] or not state["wallet"] or not state["address"]):
             ctx.telegram.bot.send_message(call.message.chat.id, "Сначала настройте вывод кнопкой «⚙️ Настроить».")
             return
-        state["enabled"] = True
+        state["enabled"] = not state["enabled"]
         save_state(state)
-        ctx.telegram.bot.send_message(call.message.chat.id, "✅ Авто-вывод включён.")
-
-    @ctx.telegram.menu_item(SECTION, "⏸ Выключить", "withdrawal:off")
-    def cbq_off(call):
-        state = get_state()
-        state["enabled"] = False
-        save_state(state)
-        ctx.telegram.bot.send_message(call.message.chat.id, "⛔ Авто-вывод выключен.")
+        ctx.telegram.refresh_section(call, SECTION)

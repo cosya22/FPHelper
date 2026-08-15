@@ -13,7 +13,7 @@ from FunPayAPI.common.exceptions import RaiseError
 
 INFO = PluginInfo(
     name="Auto Raise Lots",
-    version="1.0.0",
+    version="1.1.0",
     description="Периодически поднимает выбранные категории лотов на FunPay.",
     author="you",
 )
@@ -188,16 +188,12 @@ def setup(ctx):
 
         ctx.telegram.ask(call.message.chat.id, call.from_user.id, "Пришлите ID категории.", on_id)
 
-    @ctx.telegram.menu_item(SECTION, "▶️ Включить", "autoraise:on")
-    def cbq_on(call):
-        state = get_state()
-        state["enabled"] = True
-        save_state(state)
-        ctx.telegram.bot.send_message(call.message.chat.id, "✅ Авто-поднятие включено.")
+    def toggle_label():
+        return "🟢 Авто-поднятие" if get_state()["enabled"] else "🔴 Авто-поднятие"
 
-    @ctx.telegram.menu_item(SECTION, "⏸ Выключить", "autoraise:off")
-    def cbq_off(call):
+    @ctx.telegram.menu_item(SECTION, toggle_label, "autoraise:toggle")
+    def cbq_toggle(call):
         state = get_state()
-        state["enabled"] = False
+        state["enabled"] = not state["enabled"]
         save_state(state)
-        ctx.telegram.bot.send_message(call.message.chat.id, "⛔ Авто-поднятие выключено.")
+        ctx.telegram.refresh_section(call, SECTION)
