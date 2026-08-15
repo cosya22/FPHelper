@@ -1,4 +1,3 @@
-import getpass
 import json
 import os
 from dataclasses import asdict, dataclass
@@ -51,10 +50,19 @@ def save_config(config: Config, path: str = CONFIG_PATH) -> None:
 def run_setup_wizard(path: str = CONFIG_PATH) -> Config:
     print("\n=== Первый запуск FPHelper: настройка ===\n")
     print("Golden key — это кука вашего аккаунта FunPay (F12 -> Application -> Cookies -> golden_key).")
-    golden_key = getpass.getpass("Golden key (ввод скрыт): ").strip()
+    while True:
+        golden_key = input("Golden key: ").strip()
+        if golden_key:
+            break
+        print("Golden key не может быть пустым. Попробуйте снова.")
 
     print("\nТокен Telegram-бота получите у @BotFather командой /newbot.")
-    token = getpass.getpass("Токен Telegram-бота (ввод скрыт): ").strip()
+    print("Токен выглядит так: 123456789:AAExampleTokenTextGoesHereABCDEF")
+    while True:
+        token = input("Токен Telegram-бота: ").strip()
+        if ":" in token:
+            break
+        print("Похоже на неполный токен (должен содержать ':'). Проверьте, что скопировали его целиком, и попробуйте снова.")
 
     print("\nВаш Telegram ID можно узнать у @userinfobot.")
     while True:
