@@ -151,7 +151,18 @@ def _patch_parse_messages_robustness() -> None:
                     node = parser.find("div", {"class": "alert alert-with-icon alert-info"})
                 else:
                     node = parser.find("div", {"class": "message-text"})
-                message_text = node.text.strip() if node else ""
+                if node:
+                    message_text = node.text.strip()
+                else:
+                    message_text = ""
+                    # Раньше это было падением с AttributeError (см. _patch_parse_messages_robustness) —
+                    # теперь просто пустой текст, но логируем HTML, чтобы понять, что за
+                    # сообщение и не изменилась ли вёрстка FunPay (тогда тут нужен свежий class-селектор).
+                    logger.warning(
+                        f"Сообщение id={i.get('id')} (author_id={author_id}) в чате {chat_id}: "
+                        f"не найден ожидаемый блок текста в HTML, текст будет пустым. "
+                        f"HTML (обрезано до 500 симв.): {i.get('html', '')[:500]}"
+                    )
 
             bot_character = getattr(self, bot_character_attr)
             by_bot = False
