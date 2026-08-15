@@ -2,6 +2,10 @@ import json
 import os
 from dataclasses import asdict, dataclass
 
+from colorama import Fore, Style, init as colorama_init
+
+colorama_init()
+
 CONFIG_PATH = "config.json"
 
 
@@ -47,39 +51,62 @@ def save_config(config: Config, path: str = CONFIG_PATH) -> None:
         json.dump(config.to_dict(), f, ensure_ascii=False, indent=2)
 
 
+def _header(text: str) -> None:
+    print(f"\n{Style.BRIGHT}{Fore.CYAN}=== {text} ==={Style.RESET_ALL}\n")
+
+
+def _hint(text: str) -> None:
+    print(f"{Fore.YELLOW}{text}{Style.RESET_ALL}")
+
+
+def _error(text: str) -> None:
+    print(f"{Fore.RED}{text}{Style.RESET_ALL}")
+
+
+def _success(text: str) -> None:
+    print(f"{Fore.GREEN}{text}{Style.RESET_ALL}")
+
+
+def _prompt(text: str) -> str:
+    return input(f"{Style.BRIGHT}{Fore.WHITE}{text}{Style.RESET_ALL}")
+
+
 def run_setup_wizard(path: str = CONFIG_PATH) -> Config:
-    print("\n=== Первый запуск FPHelper: настройка ===\n")
-    print("Golden key — это кука вашего аккаунта FunPay (F12 -> Application -> Cookies -> golden_key).")
+    _header("Первый запуск FPHelper: настройка")
+    _hint("Golden key — это кука вашего аккаунта FunPay (F12 -> Application -> Cookies -> golden_key).")
     while True:
-        golden_key = input("Golden key: ").strip()
+        golden_key = _prompt("Golden key: ").strip()
         if golden_key:
             break
-        print("Golden key не может быть пустым. Попробуйте снова.")
+        _error("Golden key не может быть пустым. Попробуйте снова.")
 
-    print("\nТокен Telegram-бота получите у @BotFather командой /newbot.")
-    print("Токен выглядит так: 123456789:AAExampleTokenTextGoesHereABCDEF")
+    print()
+    _hint("Токен Telegram-бота получите у @BotFather командой /newbot.")
+    _hint("Токен выглядит так: 123456789:AAExampleTokenTextGoesHereABCDEF")
     while True:
-        token = input("Токен Telegram-бота: ").strip()
+        token = _prompt("Токен Telegram-бота: ").strip()
         if ":" in token:
             break
-        print("Похоже на неполный токен (должен содержать ':'). Проверьте, что скопировали его целиком, и попробуйте снова.")
+        _error("Похоже на неполный токен (должен содержать ':'). Проверьте, что скопировали его целиком, и попробуйте снова.")
 
-    print("\nВаш Telegram ID можно узнать у @userinfobot.")
+    print()
+    _hint("Ваш Telegram ID можно узнать у @userinfobot.")
     while True:
-        owner_raw = input("Ваш Telegram ID: ").strip()
+        owner_raw = _prompt("Ваш Telegram ID: ").strip()
         if owner_raw.isdigit():
             break
-        print("Нужно ввести число. Попробуйте снова.")
+        _error("Нужно ввести число. Попробуйте снова.")
 
-    print("\nПрокси для FunPay (необязательно, вида http://user:pass@host:port). Enter — пропустить.")
-    proxy = input("Прокси: ").strip()
+    print()
+    _hint("Прокси для FunPay (необязательно, вида http://user:pass@host:port). Enter — пропустить.")
+    proxy = _prompt("Прокси: ").strip()
 
     config = Config(
         funpay=FunPayConfig(golden_key=golden_key, proxy=proxy),
         telegram=TelegramConfig(token=token, owner_id=int(owner_raw)),
     )
     save_config(config, path)
-    print(f"\nКонфиг сохранён в {path}. Его не нужно никому передавать — там ваши секреты.\n")
+    _success(f"\nКонфиг сохранён в {path}. Его не нужно никому передавать — там ваши секреты.\n")
     return config
 
 

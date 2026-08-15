@@ -1,4 +1,5 @@
 FunPayAPI
 pyTelegramBotAPI
 cryptography
+colorama
 urllib3<2
